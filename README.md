@@ -2,7 +2,7 @@
 
 `OWBastion/owbastion.codes` 是 Bastion 生态的 Web Platform 与 operational control plane。
 
-本仓库用于承载面向玩家和开发者的公共能力，以及审核、业务数据和跨仓库变更编排。当前仓库包含平台基础 API 和一个可通过 Docker Compose 部署的最小公共 Portal；完整业务能力仍按文档中的分阶段计划建设。
+本仓库用于承载面向玩家和开发者的公共能力，以及审核、业务数据和跨仓库变更编排。当前代码包含 Cloudflare Worker API、私有 R2 证据保存、QQ 网页登录和最小公共 Portal；OCR、审核、称号授予和跨仓库变更编排仍按分阶段计划建设。
 
 ## 生态定位
 
@@ -20,8 +20,8 @@
 这里保留项目定位和公开边界；架构与工程细节请按需阅读：
 
 - [文档索引](docs/README.md)：按主题选择架构、集成、安全和开发文档。
-- [架构概览](docs/architecture/overview.md)：系统边界、目标目录和数据所有权。
-- [外部集成与业务流程](docs/architecture/integrations-and-workflows.md)：QQBot、OCRKit、Bastion 及状态流转。
+- [架构概览](docs/architecture/overview.md)：已实现目录、系统边界和数据所有权。
+- [外部集成与业务流程](docs/architecture/integrations-and-workflows.md)：QQBot、登录、证据保存和后续状态流转。
 - [数据与安全边界](docs/architecture/data-and-security.md)：数据分类、授权和公开项目中的安全约束。
 - [开发、测试与变更](docs/development/testing-and-change-policy.md)：测试分层、幂等、迁移和发布要求。
 - [HKG Portal 部署](docs/deployment/portal-hkg.md)：公共 Portal 的 Docker Compose 与服务器侧 Cloudflare Tunnel 边界。
@@ -36,4 +36,4 @@
 
 ## 当前状态
 
-公共 Portal 当前部署在 HKG 的 Docker Compose 中，Cloudflare Tunnel 由服务器侧独立运行并提供公网 TLS。API、D1、R2、队列、审核和发布编排仍按文档中的分阶段计划推进。
+仓库提供 HKG Portal 的 Docker Compose 配置和 Worker API 的 GitHub Actions 部署工作流；运行中的生产状态需单独验证。D1、R2 证据保存、QQ 登录和玩家中心已在代码中实现，队列、OCR、审核和发布编排仍按文档中的分阶段计划推进。

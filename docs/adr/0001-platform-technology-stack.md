@@ -1,6 +1,6 @@
 # ADR 0001: Platform Technology Stack
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-14
 - Decision owners: OWBastion maintainers
 - Scope: `OWBastion/owbastion.codes`
@@ -15,7 +15,10 @@
 
 The platform also owns durable business state and orchestrates integrations with QQBot, OCRKit, Bastion snapshots, Cloudflare storage, asynchronous work, and GitHub pull requests.
 
-The repository is currently at the architecture and foundation stage. A technology decision is required before creating the monorepo, API contracts, database schema, workers, and web applications.
+The accepted stack now backs the pnpm workspace, Hono Worker API, Nuxt Portal,
+contracts/domain/database/auth packages, D1 migrations, and private R2 evidence
+binding. The remaining workers, admin application, and orchestration workflows
+remain planned milestones.
 
 ## Decision
 
@@ -98,8 +101,8 @@ DNS, and Cloudflare Access configuration are operational concerns outside this
 repository.
 
 The Portal remains a rendering surface. It must not become a second business
-API or a durable data store; the canonical Hono API remains independently
-deployed and is planned for `api.owbastion.codes`.
+API or a durable data store; the canonical Hono API is independently configured
+for `api.owbastion.codes`.
 
 ### Repository organization
 
@@ -229,18 +232,19 @@ Not selected for the initial platform because the architecture is already center
 
 ## Initial implementation sequence
 
-This ADR authorizes the following foundation work:
+The following foundation work is complete:
 
 1. initialize a pnpm TypeScript workspace;
 2. create `packages/contracts`, `packages/domain`, and `packages/database`;
 3. create the minimal Hono API application;
 4. define versioned QQ binding and submission contracts;
 5. create D1 migrations for identities, bindings, submissions, attachments, idempotency, and audit events;
-6. add the evidence persistence worker and R2 adapter;
-7. generate and integrate the QQBot HTTP client;
-8. add Nuxt applications only when the first public or administrative vertical slice is ready.
+6. add the R2-backed evidence persistence path in the API;
+7. integrate the QQBot HTTP client;
+8. add the first Nuxt Portal slice.
 
-OCR orchestration, review UI, grants, snapshot import, public portal migration, and balance tooling should follow as separate validated milestones.
+OCR orchestration, review UI, grants, snapshot import, administrative surfaces,
+and balance tooling remain separate validated milestones.
 
 ## Revisit conditions
 

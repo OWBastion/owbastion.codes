@@ -1,11 +1,13 @@
 # Documentation Index
 
-This directory contains the detailed, public-facing project documentation. It describes the target architecture unless a document explicitly labels a behavior as implemented.
+This directory contains detailed, public-facing project documentation. It
+separates implemented API, Portal, storage, and login behavior from future
+architecture milestones.
 
 ## Architecture
 
-- [Overview](architecture/overview.md) — system mission, ownership boundaries, target repository shape, and design principles.
-- [Integrations and workflows](architecture/integrations-and-workflows.md) — public contracts and high-level flows for QQBot, OCRKit, submissions, challenge rules, and Bastion changes.
+- [Overview](architecture/overview.md) — system mission, ownership boundaries, implemented repository shape, and design principles.
+- [Integrations and workflows](architecture/integrations-and-workflows.md) — QQBot, submissions, evidence, login, and future OCR/Bastion flows.
 - [Data and security](architecture/data-and-security.md) — data classes, storage responsibilities, authorization, and public-repository safety.
 
 ## Architecture decisions

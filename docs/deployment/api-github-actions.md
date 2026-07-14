@@ -1,7 +1,9 @@
 # API deployment through GitHub Actions
 
 The platform API is deployed as the `owbastion-codes-api` Cloudflare Worker.
-HKG hosts run QQBot only; they call the Worker over HTTPS.
+HKG hosts run QQBot only; they call the Worker over HTTPS. The implemented API
+also serves the Portal's QQ login, session, player, and public submission-status
+requests.
 
 ## Required Cloudflare resources
 
@@ -65,14 +67,22 @@ The binding test must be sent from the dedicated test group. QQ member OpenIDs
 are group-scoped, so the same QQ user in another group is a separate platform
 binding by design.
 
+The Portal login flow additionally requires an enabled group-access record and
+an existing binding for the same group-scoped QQ identity. The current API
+contains the maintainer-protected group-access route, but a maintainer
+authentication flow must be available before it can be configured through that
+route.
+
 The returned submission ID can be checked with:
 
 ```text
 GET https://api.owbastion.codes/v1/submissions/<submission-id>
 ```
 
-The expected first milestone status is `ocr_pending`. OCRKit, review, title
-grants, and Bastion changes are not part of this deployment.
+With the R2 binding available, a valid image submission reaches `ocr_pending`;
+an unavailable or invalid source image reaches `resubmission_required`.
+OCRKit orchestration, review, title grants, and Bastion changes are not part of
+this deployment.
 
 ## Rollback
 
