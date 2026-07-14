@@ -1,14 +1,15 @@
 name = "owbastion-codes-api"
 main = "apps/api/src/worker.ts"
 compatibility_date = "2026-07-14"
+workers_dev = true
 
 [observability]
 enabled = false
 
 [[d1_databases]]
 binding = "DB"
-database_name = "owbastion-codes-local"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "owbastion-codes-prod"
+database_id = "40fb80aa-f17e-467d-9d4d-b8b3100b141d"
 migrations_dir = "migrations"
 
 [[r2_buckets]]

@@ -19,5 +19,6 @@ This directory contains the detailed, public-facing project documentation. It de
 ## Deployment
 
 - [HKG Portal deployment](deployment/portal-hkg.md) — Docker Compose deployment for the public Portal and the server-managed Cloudflare Tunnel boundary.
+- [API deployment](deployment/api-github-actions.md) — GitHub Actions deployment of the Cloudflare Worker API and HKG QQBot integration.
 
 For AI-agent routing, start with the repository-level [`AGENTS.md`](../AGENTS.md). For the short public introduction, start with [`README.md`](../README.md).
