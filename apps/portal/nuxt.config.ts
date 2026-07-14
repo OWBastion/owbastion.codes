@@ -2,6 +2,7 @@ import { defineNuxtConfig } from "nuxt/config";
 
 export default defineNuxtConfig({
   devtools: { enabled: false },
+  css: ["~/assets/css/main.css"],
   compatibilityDate: "2026-07-14",
   app: {
     head: {
