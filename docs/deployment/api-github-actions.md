@@ -36,16 +36,16 @@ migrations, updates the Worker secret, deploys the Worker, and checks `/health`.
 The workflow refuses to deploy while the D1 ID is still the repository's
 placeholder. It does not reset, delete, or roll back D1 data.
 
-The deployment job reports the resulting `workers.dev` URL. Use that URL as
-`PLATFORM_BASE_URL` for the first QQBot test; configure a custom API hostname
-only after the worker URL path is verified.
+The Worker is deployed to the Git-managed Custom Domain
+`https://api.owbastion.codes`. The workflow verifies that hostname after every
+deployment.
 
 ## HKG QQBot configuration
 
 Add these values to the existing QQBot runtime environment:
 
 ```env
-PLATFORM_BASE_URL=https://<worker-subdomain>.workers.dev
+PLATFORM_BASE_URL=https://api.owbastion.codes
 PLATFORM_SERVICE_TOKEN=<same-value-as-QQBOT_API_TOKEN>
 PLATFORM_REQUEST_TIMEOUT_MS=10000
 ```
@@ -60,7 +60,7 @@ Restart only the QQBot container. Then test in a dedicated QQ group:
 The returned submission ID can be checked with:
 
 ```text
-GET <PLATFORM_BASE_URL>/v1/submissions/<submission-id>
+GET https://api.owbastion.codes/v1/submissions/<submission-id>
 ```
 
 The expected first milestone status is `ocr_pending`. OCRKit, review, title

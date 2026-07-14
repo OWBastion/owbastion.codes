@@ -1,7 +1,11 @@
 name = "owbastion-codes-api"
 main = "apps/api/src/worker.ts"
 compatibility_date = "2026-07-14"
-workers_dev = true
+workers_dev = false
+
+[[routes]]
+pattern = "api.owbastion.codes"
+custom_domain = true
 
 [observability]
 enabled = false

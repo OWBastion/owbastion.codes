@@ -85,23 +85,15 @@ jobs:
       - name: Apply remote D1 migrations
         run: pnpm exec wrangler d1 migrations apply owbastion-codes-prod --remote
 
-      - name: Deploy Worker and capture URL
-        id: deploy-worker
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm exec wrangler deploy 2>&1 | tee deploy.log
-          worker_url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' deploy.log | tail -1 | sed 's/[[:punct:]]*$//')"
-          test -n "$worker_url"
-          echo "worker_url=$worker_url" >> "$GITHUB_OUTPUT"
-          echo "Worker URL: $worker_url"
+      - name: Deploy Worker
+        run: pnpm exec wrangler deploy
 
       - name: Update Worker service secret
         shell: bash
         run: printf '%s' "$QQBOT_API_TOKEN" | pnpm exec wrangler secret put QQBOT_API_TOKEN
 
       - name: Verify deployed Worker
-        run: curl --fail --retry 5 --retry-delay 2 "${{ steps.deploy-worker.outputs.worker_url }}/health"
+        run: curl --fail --retry 5 --retry-delay 2 https://api.owbastion.codes/health
 
-      - name: Publish Worker URL
-        run: echo "::notice title=Cloudflare Worker deployed::${{ steps.deploy-worker.outputs.worker_url }}"
+      - name: Publish API URL
+        run: echo "::notice title=Cloudflare Worker deployed::https://api.owbastion.codes"
