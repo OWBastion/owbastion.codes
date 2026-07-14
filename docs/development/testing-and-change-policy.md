@@ -2,6 +2,18 @@
 
 ## Before implementation
 
+## Current foundation status
+
+The repository currently contains a runnable pnpm TypeScript workspace and a
+minimal Hono Cloudflare Worker API. `GET /health` is the only implemented API
+route. The contracts, domain, and database packages are package boundaries
+only; QQ bindings, submission contracts, D1 migrations, authentication,
+workers, and Nuxt applications are not implemented yet.
+
+The remaining foundation sequence from ADR 0001 must be introduced as separate
+validated milestones. Design documents do not imply that those capabilities
+already exist.
+
 For a non-trivial change, identify:
 
 - product area and owner of each fact;

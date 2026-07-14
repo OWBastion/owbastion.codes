@@ -1,0 +1,6 @@
+name = "owbastion-codes-api"
+main = "apps/api/src/worker.ts"
+compatibility_date = "2026-07-14"
+
+[observability]
+enabled = false
