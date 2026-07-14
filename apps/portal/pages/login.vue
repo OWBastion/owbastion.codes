@@ -1,0 +1,48 @@
+<script setup lang="ts">
+useSeoMeta({ title: "登录 · 躲避堡垒 3" });
+
+const route = useRoute();
+const { state, attempt, secondsLeft, message, start, restore, cancel, copyCode, safeReturnTo } = useLoginAttempt();
+const returnTo = computed(() => safeReturnTo(route.query.returnTo));
+const copied = ref(false);
+
+onMounted(() => restore(returnTo.value));
+
+async function copy() {
+  await copyCode();
+  copied.value = true;
+  window.setTimeout(() => { copied.value = false; }, 1600);
+}
+</script>
+
+<template>
+  <main class="login-page page-shell">
+    <section class="login-card surface-card" aria-live="polite">
+      <p class="eyebrow">玩家登录</p>
+      <h1 class="page-title">用 QQ 确认<br>你的玩家身份</h1>
+      <p class="body-copy intro">登录不会公开你的 QQ 信息。请在已绑定且已开放的 QQ 群中完成一次验证。</p>
+
+      <div v-if="state === 'idle' || state === 'cancelled' || state === 'expired' || state === 'failed'" class="action-panel">
+        <p v-if="state === 'expired'" class="notice warning">验证码已过期，请重新获取。</p>
+        <p v-else-if="state === 'failed'" class="notice error">{{ message }}</p>
+        <p v-else-if="state === 'cancelled'" class="notice">已取消本次验证。</p>
+        <button class="primary-button" type="button" @click="start(returnTo)">{{ state === 'failed' || state === 'expired' ? '重新获取验证码' : '生成登录验证码' }}</button>
+      </div>
+
+      <div v-else-if="state === 'creating'" class="action-panel"><p class="notice">正在生成一次性验证码……</p></div>
+
+      <div v-else-if="state === 'waiting' && attempt" class="challenge-panel">
+        <div class="challenge-heading"><div><p class="challenge-label">群内验证</p><p class="challenge-copy">在已开放的 QQ 群中 @机器人发送：</p></div><strong>{{ secondsLeft }} 秒</strong></div>
+        <p class="login-code">/验证 {{ attempt.code }}</p>
+        <div class="challenge-actions"><button class="secondary-button" type="button" @click="copy">{{ copied ? '已复制' : '复制指令' }}</button><button class="text-button" type="button" @click="cancel">取消</button></div>
+        <p class="hint">验证成功后会自动进入玩家中心。验证码仅在本浏览器标签页临时保存。</p>
+      </div>
+
+      <div v-else class="action-panel"><p class="notice">正在确认登录状态……</p></div>
+    </section>
+  </main>
+</template>
+
+<style scoped>
+.login-page { display: grid; min-height: calc(100svh - 68px); place-items: center; padding-block: clamp(78px, 13vh, 140px) 56px; }.login-card { width: min(100%, 680px); padding: clamp(28px, 6vw, 58px); }.intro { max-width: 43ch; margin: 22px 0 38px; }.action-panel { min-height: 118px; }.notice { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }.warning { color: oklch(82% .12 85); }.error { color: var(--danger); }.challenge-panel { padding: 22px; border: 1px solid color-mix(in oklch, var(--accent) 46%, var(--line)); border-radius: 15px; background: var(--accent-surface); }.challenge-heading { display: flex; justify-content: space-between; gap: 18px; color: oklch(90% .02 145); }.challenge-heading strong { color: var(--accent); font-size: .85rem; white-space: nowrap; }.challenge-label { margin: 0 0 6px; color: var(--accent); font-size: .72rem; font-weight: 720; letter-spacing: .06em; }.challenge-copy { margin: 0; font-size: .88rem; }.login-code { margin: 20px 0; color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 720; letter-spacing: .04em; }.challenge-actions { display: flex; align-items: center; gap: 16px; }.text-button { padding: 0; border: 0; color: oklch(87% .016 145); background: transparent; font-size: .85rem; }.hint { margin: 20px 0 0; color: oklch(82% .016 145); font-size: .77rem; line-height: 1.55; }
+</style>
