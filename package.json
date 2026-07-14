@@ -11,6 +11,7 @@
     "build:portal": "pnpm --filter @owbastion/portal build",
     "build:api": "pnpm --filter @owbastion/api build",
     "build": "pnpm --recursive --if-present run build",
+    "pretest": "pnpm --filter @owbastion/portal exec nuxi prepare",
     "typecheck:portal": "pnpm --filter @owbastion/portal typecheck",
     "typecheck:api": "pnpm --filter @owbastion/api typecheck",
     "test": "vitest run",
