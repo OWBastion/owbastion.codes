@@ -53,7 +53,7 @@ non-grant outcomes.
 QQBot is a channel adapter. It sends /绑定, /成就挑战, and /验证 requests to the
 API and does not perform OCR, review, title, or GitHub logic.
 
-A Portal login attempt creates a six-character code valid for five minutes.
+A Portal login attempt creates a six-character code valid for two minutes.
 The user sends /验证 CODE in an enabled QQ group. The API verifies that the
 same group-scoped QQ identity has an existing binding before consuming the
 code, records the group environment, and issues a 30-day browser session when

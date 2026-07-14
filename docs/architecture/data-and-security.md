@@ -30,7 +30,7 @@ or QQ OpenIDs from public status and player endpoints.
 
 QQ login codes, attempt tokens, session tokens, group OpenIDs, and member
 OpenIDs are private. The database stores hashes of the short-lived attempt
-token and code. Login attempts expire after five minutes; a verified browser
+token and code. Login attempts expire after two minutes; a verified browser
 session expires after 30 days. The Portal receives a session cookie only after
 the platform verifies a code from an enabled group with an existing group-scoped
 binding.

@@ -5,7 +5,7 @@ import type { QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqL
 import { attachments, auditEvents, bindings, identities, idempotencyKeys, playerAccounts, qqGroupAccess, qqLoginAttempts, qqSessions, submissions } from "./schema";
 
 const now = () => Date.now();
-const loginTtlMs = 5 * 60 * 1000;
+const loginTtlMs = 2 * 60 * 1000;
 const sessionTtlMs = 30 * 24 * 60 * 60 * 1000;
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
