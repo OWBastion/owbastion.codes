@@ -1,5 +1,33 @@
 <script setup lang="ts">
 import { useSeoMeta } from "#imports";
+const config = useRuntimeConfig();
+const loginState = ref<"idle" | "pending" | "verified" | "expired">("idle");
+const loginCode = ref("");
+const loginExpiresAt = ref(0);
+const loginEnvironment = ref<"production" | "test">();
+let attemptId = "";
+let attemptToken = "";
+let pollTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function startLogin() {
+  const response = await $fetch<{ attemptId: string; attemptToken: string; code: string; expiresAt: number }>(`${config.public.apiBaseUrl}/v1/auth/qq/login-attempt`, { method: "POST", body: { contractVersion: "1", provider: "qq" }, credentials: "include" });
+  attemptId = response.attemptId;
+  attemptToken = response.attemptToken;
+  loginCode.value = response.code;
+  loginExpiresAt.value = response.expiresAt;
+  loginState.value = "pending";
+  pollLogin();
+}
+
+async function pollLogin() {
+  if (!attemptId) return;
+  const response = await $fetch<{ status: "pending" | "verified" | "expired"; environment?: "production" | "test" }>(`${config.public.apiBaseUrl}/v1/auth/qq/login-attempt/${attemptId}`, { headers: { "x-login-attempt-token": attemptToken }, credentials: "include" });
+  loginState.value = response.status;
+  loginEnvironment.value = response.environment;
+  if (response.status === "pending") pollTimer = setTimeout(pollLogin, 2000);
+}
+
+onBeforeUnmount(() => { if (pollTimer) clearTimeout(pollTimer); });
 
 useSeoMeta({
   title: "OWBastion · Bastion 生态平台",
@@ -24,8 +52,17 @@ useSeoMeta({
         这里将成为 Bastion 玩家、开发者与维护者共享的公共入口。版本数据、挑战记录和社区工具，正在被整理成一个更清晰的地方。
       </p>
       <div class="hero-actions">
-        <a class="primary-link" href="https://github.com/OWBastion" rel="noreferrer">查看项目 <span aria-hidden="true">↗</span></a>
+        <button class="primary-link" type="button" @click="startLogin">QQ 群验证 <span aria-hidden="true">→</span></button>
         <span class="build-note">PUBLIC PORTAL / 001</span>
+      </div>
+      <div v-if="loginState !== 'idle'" class="login-card" aria-live="polite">
+        <template v-if="loginState === 'pending'">
+          <span class="login-label">请在已开放的 QQ 群中 @机器人</span>
+          <strong class="login-code">/验证 {{ loginCode }}</strong>
+          <span class="login-help">验证码有效期 5 分钟，验证成功后本页面会自动登录。</span>
+        </template>
+        <strong v-else-if="loginState === 'verified'">登录成功 · {{ loginEnvironment === 'test' ? '测试环境' : '正式环境' }}</strong>
+        <strong v-else>验证码已过期，请重新获取。</strong>
       </div>
     </section>
 
@@ -105,10 +142,13 @@ h1 { max-width: 820px; margin: 0; font-family: var(--serif); font-size: clamp(3.
 h1 em { color: var(--accent); font-style: italic; }
 .hero-copy { max-width: 42ch; margin: 40px 0 0; color: var(--muted); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.7; }
 .hero-actions { display: flex; align-items: center; gap: 24px; margin-top: 36px; }
-.primary-link { display: inline-flex; min-height: 48px; align-items: center; gap: 20px; padding: 0 18px; color: var(--paper); background: var(--ink); font-size: 0.85rem; font-weight: 700; text-decoration: none; transition: background 180ms ease, transform 180ms ease; }
+.primary-link { display: inline-flex; min-height: 48px; align-items: center; gap: 20px; padding: 0 18px; border: 0; color: var(--paper); background: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: background 180ms ease, transform 180ms ease; }
 .primary-link:hover, .primary-link:focus-visible { background: var(--accent); transform: translateY(-2px); }
 .primary-link:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .build-note { color: var(--muted); }
+.login-card { display: grid; width: min(100%, 440px); gap: 10px; margin-top: 28px; padding: 20px; border: 1px solid var(--ink); background: var(--paper); }
+.login-label, .login-help { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.login-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.45rem; letter-spacing: 0.04em; }
 
 .signal-grid { display: grid; grid-template-columns: 1.25fr 1fr 1fr; border-top: 1px solid var(--ink); }
 .signal { min-height: 190px; padding: 20px 24px 20px 0; border-right: 1px solid var(--line); }

@@ -1,10 +1,25 @@
 import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { AuthContext, PlatformServices } from "@owbastion/domain";
-import type { QqBindingRequest, SubmissionRequest } from "@owbastion/contracts";
-import { attachments, auditEvents, bindings, identities, idempotencyKeys, playerAccounts, submissions } from "./schema";
+import type { QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, SubmissionRequest } from "@owbastion/contracts";
+import { attachments, auditEvents, bindings, identities, idempotencyKeys, playerAccounts, qqGroupAccess, qqLoginAttempts, qqSessions, submissions } from "./schema";
 
 const now = () => Date.now();
+const loginTtlMs = 5 * 60 * 1000;
+const sessionTtlMs = 30 * 24 * 60 * 60 * 1000;
+const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+const randomToken = (bytes = 32) => {
+  const value = new Uint8Array(bytes);
+  crypto.getRandomValues(value);
+  return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
+
+const randomCode = () => {
+  const value = new Uint8Array(6);
+  crypto.getRandomValues(value);
+  return Array.from(value, (byte) => codeAlphabet[byte % codeAlphabet.length]).join("");
+};
 
 const hashRequest = async (value: unknown) => {
   const encoded = new TextEncoder().encode(JSON.stringify(value));
@@ -79,6 +94,62 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
   const db = drizzle(database);
 
   return {
+    async upsertQqGroupAccess(input: QqGroupAccessRequest, auth) {
+      const timestamp = now();
+      const existing = await db.select().from(qqGroupAccess).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId)).get();
+      if (existing) {
+        await db.update(qqGroupAccess).set({ environment: input.environment, enabled: input.enabled ? 1 : 0, updatedAt: timestamp }).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId));
+      } else {
+        await db.insert(qqGroupAccess).values({ groupOpenId: input.groupOpenId, environment: input.environment, enabled: input.enabled ? 1 : 0, createdAt: timestamp, updatedAt: timestamp });
+      }
+      await recordAudit(db, auth, "qq.group_access.update", "qq_group_access", input.groupOpenId, { environment: input.environment, enabled: input.enabled });
+    },
+
+    async createQqLoginAttempt(input: QqLoginAttemptRequest) {
+      const timestamp = now();
+      const attemptId = crypto.randomUUID();
+      const attemptToken = randomToken();
+      const code = randomCode();
+      await db.insert(qqLoginAttempts).values({ id: attemptId, tokenHash: await hashRequest(attemptToken), codeHash: await hashRequest(code), status: "pending", expiresAt: timestamp + loginTtlMs, createdAt: timestamp });
+      return { contractVersion: "1" as const, attemptId, attemptToken, code, expiresAt: timestamp + loginTtlMs };
+    },
+
+    async getQqLoginStatus(input) {
+      const attempt = await db.select().from(qqLoginAttempts).where(eq(qqLoginAttempts.id, input.attemptId)).get();
+      if (!attempt) throw new Error("LOGIN_ATTEMPT_NOT_FOUND");
+      if (attempt.tokenHash !== await hashRequest(input.attemptToken)) throw new Error("LOGIN_ATTEMPT_FORBIDDEN");
+      if (attempt.status === "pending" && attempt.expiresAt <= now()) {
+        await db.update(qqLoginAttempts).set({ status: "expired" }).where(eq(qqLoginAttempts.id, attempt.id));
+        return { contractVersion: "1" as const, status: "expired" as const };
+      }
+      if (attempt.status !== "verified") return { contractVersion: "1" as const, status: attempt.status as "pending" | "expired" };
+      if (!attempt.groupOpenId || !attempt.memberOpenId || !attempt.environment) return { contractVersion: "1" as const, status: "expired" as const };
+      if (attempt.sessionIssuedAt) return { contractVersion: "1" as const, status: "verified" as const, environment: attempt.environment as "production" | "test" };
+      const sessionToken = randomToken();
+      const timestamp = now();
+      await db.insert(qqSessions).values({ id: crypto.randomUUID(), attemptId: attempt.id, groupOpenId: attempt.groupOpenId, memberOpenId: attempt.memberOpenId, environment: attempt.environment, tokenHash: await hashRequest(sessionToken), expiresAt: timestamp + sessionTtlMs, createdAt: timestamp });
+      await db.update(qqLoginAttempts).set({ sessionTokenHash: await hashRequest(sessionToken), sessionIssuedAt: timestamp }).where(eq(qqLoginAttempts.id, attempt.id));
+      return { contractVersion: "1" as const, status: "verified" as const, environment: attempt.environment as "production" | "test", sessionToken };
+    },
+
+    async verifyQqLogin(input: QqLoginVerifyRequest, auth, idempotencyKey) {
+      const replay = await replayOrConflict<ReturnType<PlatformServices["verifyQqLogin"]> extends Promise<infer T> ? T : never>(db, auth.subject, "qq.login.verify", idempotencyKey, input);
+      if (replay) return replay;
+      const group = await db.select().from(qqGroupAccess).where(and(eq(qqGroupAccess.groupOpenId, input.groupOpenId), eq(qqGroupAccess.enabled, 1))).get();
+      if (!group) throw new Error("LOGIN_GROUP_NOT_ALLOWED");
+      const attempt = await db.select().from(qqLoginAttempts).where(and(eq(qqLoginAttempts.codeHash, await hashRequest(input.code)), eq(qqLoginAttempts.status, "pending"))).get();
+      if (!attempt) throw new Error("LOGIN_CODE_INVALID");
+      if (attempt.expiresAt <= now()) {
+        await db.update(qqLoginAttempts).set({ status: "expired" }).where(eq(qqLoginAttempts.id, attempt.id));
+        throw new Error("LOGIN_CODE_EXPIRED");
+      }
+      await db.update(qqLoginAttempts).set({ status: "verified", groupOpenId: input.groupOpenId, memberOpenId: input.memberOpenId, environment: group.environment, messageId: input.messageId, verifiedAt: now() }).where(eq(qqLoginAttempts.id, attempt.id));
+      const response = { contractVersion: "1" as const, status: "verified" as const, environment: group.environment as "production" | "test" };
+      await recordIdempotency(db, auth.subject, "qq.login.verify", idempotencyKey, input, response);
+      await recordAudit(db, auth, "qq.login.verify", "qq_login_attempt", attempt.id, { environment: group.environment });
+      return response;
+    },
+
     async createBinding(input: QqBindingRequest, auth, idempotencyKey) {
       const replay = await replayOrConflict<ReturnType<PlatformServices["createBinding"]> extends Promise<infer T> ? T : never>(db, auth.subject, "qq.binding.create", idempotencyKey, input);
       if (replay) return replay;

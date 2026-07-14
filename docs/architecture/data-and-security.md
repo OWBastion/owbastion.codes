@@ -38,6 +38,8 @@ Screenshots and review data are private by default. Implementations should valid
 
 Logs must not contain screenshot bytes, secrets, signed URLs, or unnecessary private identifiers.
 
+QQ login codes, browser attempt tokens, session tokens, group OpenIDs, and member OpenIDs are private. Only hashes of short-lived login credentials are persisted, and the Portal receives a session cookie only after the platform has verified a code from an enabled group. Login attempts expire after five minutes and are consumed once.
+
 ## Public-repository policy
 
 The repository is public. Do not commit credentials, tokens, production endpoints, private identifiers, user screenshots, internal risk signals, signed URLs, or copied private logs. Public documentation should describe contracts and boundaries, not provide operational access details.

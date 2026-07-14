@@ -89,3 +89,9 @@ Requests need stable external identifiers, idempotent retries, duplicate-grant p
 ## QQBot
 
 The platform API should expose contracts for identity binding, submission creation from stable message metadata, player-visible status, and notification jobs. QQBot should not contain OCR, review-rule, title-slot, or GitHub workflow logic. External QQ identifiers remain private and must not appear in public views.
+
+## QQ group login
+
+The implemented login slice uses a short-lived browser challenge. The Portal creates a one-time code, and the user sends `/验证 CODE` while mentioning the bot in an enabled production or test group. QQBot forwards the group and member OpenIDs plus the source message ID to the platform. The platform verifies and consumes the code, creates the browser session, and returns the target environment. QQBot sends the success acknowledgement and calls the QQ group-message recall endpoint for the source message.
+
+Group access is configured by maintainers through the admin API. The login identity is group-scoped because QQ `member_openid` differs for the same user in different groups; player-account binding remains a separate operation.

@@ -75,3 +75,38 @@ export const auditEvents = sqliteTable("audit_events", {
   payloadJson: text("payload_json").notNull(),
   createdAt: integer("created_at").notNull(),
 });
+
+export const qqGroupAccess = sqliteTable("qq_group_access", {
+  groupOpenId: text("group_open_id").primaryKey(),
+  environment: text("environment").notNull(),
+  enabled: integer("enabled").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const qqLoginAttempts = sqliteTable("qq_login_attempts", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  codeHash: text("code_hash").notNull(),
+  status: text("status").notNull(),
+  groupOpenId: text("group_open_id"),
+  memberOpenId: text("member_open_id"),
+  environment: text("environment"),
+  messageId: text("message_id"),
+  sessionTokenHash: text("session_token_hash"),
+  sessionIssuedAt: integer("session_issued_at"),
+  expiresAt: integer("expires_at").notNull(),
+  createdAt: integer("created_at").notNull(),
+  verifiedAt: integer("verified_at"),
+});
+
+export const qqSessions = sqliteTable("qq_sessions", {
+  id: text("id").primaryKey(),
+  attemptId: text("attempt_id").notNull(),
+  groupOpenId: text("group_open_id").notNull(),
+  memberOpenId: text("member_open_id").notNull(),
+  environment: text("environment").notNull(),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  createdAt: integer("created_at").notNull(),
+});

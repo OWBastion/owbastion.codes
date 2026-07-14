@@ -25,6 +25,35 @@ export const qqBindingResponseSchema = z.object({
   playerId,
 });
 
+export const qqLoginAttemptRequestSchema = z.object({ contractVersion, provider: z.literal("qq") });
+export const qqLoginAttemptResponseSchema = z.object({
+  contractVersion,
+  attemptId: z.string().uuid(),
+  attemptToken: z.string().min(32),
+  code: z.string().regex(/^[A-Z2-9]{6}$/),
+  expiresAt: z.number().int(),
+});
+export const qqLoginStatusResponseSchema = z.object({
+  contractVersion,
+  status: z.enum(["pending", "verified", "expired"]),
+  environment: z.enum(["production", "test"]).optional(),
+  sessionToken: z.string().min(32).optional(),
+});
+export const qqLoginVerifyRequestSchema = z.object({
+  contractVersion,
+  provider: z.literal("qq"),
+  code: z.string().regex(/^[A-Z2-9]{6}$/),
+  groupOpenId: externalId,
+  memberOpenId: externalId,
+  messageId: externalId,
+});
+export const qqLoginVerifyResponseSchema = z.object({
+  contractVersion,
+  status: z.literal("verified"),
+  environment: z.enum(["production", "test"]),
+});
+export const qqGroupAccessRequestSchema = z.object({ contractVersion, groupOpenId: externalId, environment: z.enum(["production", "test"]), enabled: z.boolean() });
+
 const attachmentSchema = z.object({
   externalAttachmentId: externalId,
   contentType: z.string().trim().min(1).max(128),
@@ -80,6 +109,12 @@ export const errorResponseSchema = z.object({
 
 export type QqBindingRequest = z.infer<typeof qqBindingRequestSchema>;
 export type QqBindingResponse = z.infer<typeof qqBindingResponseSchema>;
+export type QqLoginAttemptRequest = z.infer<typeof qqLoginAttemptRequestSchema>;
+export type QqLoginAttemptResponse = z.infer<typeof qqLoginAttemptResponseSchema>;
+export type QqLoginStatusResponse = z.infer<typeof qqLoginStatusResponseSchema>;
+export type QqLoginVerifyRequest = z.infer<typeof qqLoginVerifyRequestSchema>;
+export type QqLoginVerifyResponse = z.infer<typeof qqLoginVerifyResponseSchema>;
+export type QqGroupAccessRequest = z.infer<typeof qqGroupAccessRequestSchema>;
 export type SubmissionRequest = z.infer<typeof submissionRequestSchema>;
 export type SubmissionResponse = z.infer<typeof submissionResponseSchema>;
 export type SubmissionStatusResponse = z.infer<typeof submissionStatusResponseSchema>;
