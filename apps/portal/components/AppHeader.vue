@@ -30,9 +30,9 @@ async function signOut() {
 
 <style scoped>
 .app-header-wrap { position: sticky; z-index: 10; top: 14px; width: min(100% - 28px, 1280px); margin: 0 auto; }
-.app-header { display: flex; align-items: center; gap: 28px; min-height: 54px; padding: 0 16px 0 12px; border: 1px solid var(--line); border-radius: 14px; background: oklch(18% 0.013 160 / 82%); box-shadow: 0 8px 22px -18px oklch(0% 0 0 / 80%); backdrop-filter: blur(20px) saturate(145%); }
+.app-header { display: flex; align-items: center; gap: 28px; min-height: 54px; padding: 0 16px 0 12px; border: 1px solid var(--line); border-radius: 14px; background: oklch(18% 0.013 48 / 82%); box-shadow: 0 8px 22px -18px oklch(0% 0 0 / 80%); backdrop-filter: blur(20px) saturate(145%); }
 .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--text); font-size: .9rem; font-weight: 650; letter-spacing: -.025em; text-decoration: none; white-space: nowrap; }
-.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: oklch(22% 0.025 155); background: var(--accent); font-size: .92rem; font-weight: 760; }
+.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: oklch(22% 0.025 50); background: var(--accent); font-size: .92rem; font-weight: 760; }
 .main-nav { display: flex; flex: 1; justify-content: center; gap: clamp(16px, 2.6vw, 34px); color: var(--muted); font-size: .78rem; }
 .main-nav a, .account-link { text-decoration: none; transition: color 160ms ease; }
 .main-nav a:hover, .account-link:hover { color: var(--text); }

@@ -37,15 +37,15 @@ const statusText: Record<string, string> = {
 </template>
 
 <style scoped>
-.submission-page { min-height: 100svh; padding: 40px clamp(20px, 8vw, 120px); color: oklch(18% 0.02 175); background: oklch(94% 0.025 80); font-family: "Avenir Next", "Noto Sans CJK SC", sans-serif; }
+.submission-page { min-height: 100svh; padding: 40px clamp(20px, 8vw, 120px); color: oklch(18% 0.02 55); background: oklch(94% 0.025 80); font-family: "Avenir Next", "Noto Sans CJK SC", sans-serif; }
 .back-link { color: inherit; text-decoration: none; }
 .eyebrow { margin: 120px 0 20px; color: oklch(61% 0.16 38); font-size: .72rem; font-weight: 700; letter-spacing: .12em; }
 h1 { margin: 0 0 36px; font-family: Georgia, "Noto Serif SC", serif; font-size: clamp(3rem, 8vw, 7rem); font-weight: 400; letter-spacing: -.08em; }
-.card { max-width: 720px; padding: 28px; border: 1px solid oklch(18% 0.02 175 / 18%); background: oklch(98% 0.01 80 / 70%); }
+.card { max-width: 720px; padding: 28px; border: 1px solid oklch(18% 0.02 55 / 18%); background: oklch(98% 0.01 80 / 70%); }
 dl { margin: 0; }
-dl div { display: flex; justify-content: space-between; gap: 24px; padding: 18px 0; border-bottom: 1px solid oklch(18% 0.02 175 / 12%); }
+dl div { display: flex; justify-content: space-between; gap: 24px; padding: 18px 0; border-bottom: 1px solid oklch(18% 0.02 55 / 12%); }
 dl div:last-child { border-bottom: 0; }
-dt { color: oklch(45% 0.025 175); }
+dt { color: oklch(45% 0.025 55); }
 dd { margin: 0; font-weight: 700; text-align: right; word-break: break-all; }
-.message { color: oklch(45% 0.025 175); }
+.message { color: oklch(45% 0.025 55); }
 </style>
