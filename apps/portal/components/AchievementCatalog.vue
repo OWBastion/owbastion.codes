@@ -27,7 +27,7 @@ const groups = computed(() => {
     <section v-for="group in groups" :key="group.category" class="achievement-section" :aria-labelledby="`category-${group.category}`">
       <div class="group-heading"><div><p class="eyebrow">成就分类</p><h2 :id="`category-${group.category}`">{{ group.category }}</h2></div><span>{{ group.challenges.length }} 项</span></div>
       <div class="achievement-grid">
-        <article v-for="challenge in group.challenges" :key="challenge.challengeId" class="achievement-card" :class="{ automatic: challenge.submissionMode === 'automatic' }">
+        <article v-for="challenge in group.challenges" :key="challenge.challengeId" class="achievement-card">
           <div class="achievement-card-copy"><strong>{{ challenge.titleName }}</strong><span>{{ challenge.condition }}</span></div>
         </article>
       </div>
@@ -37,6 +37,6 @@ const groups = computed(() => {
 </template>
 
 <style scoped>
-.achievement-groups, .achievement-section { display: grid; gap: 18px; }.achievement-section + .achievement-section { margin-top: 58px; }.group-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }.group-heading .eyebrow { margin-bottom: 8px; }.group-heading h2 { margin: 0; color: var(--text); font-size: clamp(1.55rem, 3vw, 2.2rem); letter-spacing: -.045em; }.group-heading > span { color: var(--quiet); font-size: .78rem; }.achievement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }.achievement-card { display: grid; min-height: 220px; align-content: start; gap: 20px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }.achievement-card.automatic { background: color-mix(in oklch, var(--surface-raised) 70%, var(--surface)); }.achievement-card-copy { display: grid; gap: 9px; }.card-kicker { color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .05em; }.achievement-card strong { color: var(--text); font-size: 1.22rem; letter-spacing: -.035em; }.achievement-card-copy > span:last-child { color: var(--muted); font-size: .86rem; line-height: 1.6; }
+.achievement-groups, .achievement-section { display: grid; gap: 18px; }.achievement-section + .achievement-section { margin-top: 58px; }.group-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }.group-heading .eyebrow { margin-bottom: 8px; }.group-heading h2 { margin: 0; color: var(--text); font-size: clamp(1.55rem, 3vw, 2.2rem); letter-spacing: -.045em; }.group-heading > span { color: var(--quiet); font-size: .78rem; }.achievement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }.achievement-card { display: grid; min-height: 220px; align-content: start; gap: 20px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }.achievement-card-copy { display: grid; gap: 9px; }.achievement-card strong { color: var(--text); font-size: 1.22rem; letter-spacing: -.035em; }.achievement-card-copy > span:last-child { color: var(--muted); font-size: .86rem; line-height: 1.6; }
 @media (max-width: 620px) { .achievement-grid { grid-template-columns: 1fr; }.achievement-card { min-height: 0; }.group-heading { align-items: flex-start; flex-direction: column; gap: 8px; } }
 </style>
