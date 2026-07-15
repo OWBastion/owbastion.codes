@@ -26,6 +26,8 @@ const services: PlatformServices = {
     recentSubmissions: [{ submissionId: "00000000-0000-0000-0000-000000000003", status: "ocr_pending", mapName: "Test Map", createdAt: 2, updatedAt: 3 }],
   } : null,
   logoutPortalSession: async () => {},
+  listLocalDevAccounts: async () => [],
+  createLocalDevSession: async () => ({ sessionToken: "local-session-token" }),
 };
 
 const app = createApp({
@@ -114,5 +116,24 @@ describe("API", () => {
     const allowed = await adminApp.request("http://localhost/v1/admin/player-accounts", { headers: { "cf-access-authenticated-user-email": "admin@example.com" } }, env);
     expect(allowed.status).toBe(200);
     expect(await allowed.json()).toMatchObject({ contractVersion: "1", items: [], page: 1 });
+  });
+
+  it("keeps local development login disabled unless explicitly enabled", async () => {
+    const localServices: PlatformServices = {
+      ...services,
+      listLocalDevAccounts: async () => [{ accountId: "local-player-account", playerId: "local-player", playerName: "Local Player", isAdmin: false }],
+      createLocalDevSession: async () => ({ sessionToken: "local-session" }),
+      getCurrentPlayer: async ({ sessionToken }) => sessionToken === "local-session" ? { contractVersion: "1", player: { playerId: "local-player", playerName: "Local Player", bindingStatus: "bound" }, recentSubmissions: [] } : null,
+    };
+    const localApp = createApp({ authenticate: async () => null, services: () => localServices });
+    expect((await localApp.request("http://localhost/v1/__local/accounts", {}, env)).status).toBe(404);
+
+    const localEnv = { ...env, LOCAL_DEV_AUTH: "true" };
+    expect((await localApp.request("http://localhost/v1/__local/accounts", {}, localEnv)).status).toBe(200);
+    const login = await localApp.request("http://localhost/v1/__local/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: "local-player-account" }) }, localEnv);
+    expect(login.status).toBe(200);
+    expect(login.headers.get("set-cookie")).toContain("owb_session=local-session");
+    const denied = await localApp.request("http://localhost/v1/admin/player-accounts", { headers: { cookie: "owb_session=local-session" } }, localEnv);
+    expect(denied.status).toBe(403);
   });
 });

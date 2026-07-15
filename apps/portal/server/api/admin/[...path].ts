@@ -8,6 +8,7 @@ export default defineEventHandler(async (event) => {
     const value = request.headers[name];
     if (value) headers[name] = Array.isArray(value) ? value[0] : value;
   }
+  if (request.headers.cookie) headers.cookie = request.headers.cookie;
   const method = request.method ?? "GET";
   const body = method === "GET" || method === "HEAD" || method === "DELETE" ? undefined : JSON.stringify(await readBody(event));
   const response = await fetch(new URL(`/v1/admin/${path}`, config.public.apiBaseUrl), { method, headers, body });

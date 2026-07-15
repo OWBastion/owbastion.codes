@@ -16,6 +16,7 @@ export type RuntimeEnv = {
   LOGIN_SESSION_TTL_MS?: string;
   PORTAL_ORIGIN?: string;
   ADMIN_EMAILS?: string;
+  LOCAL_DEV_AUTH?: string;
 };
 
 type AppDependencies = {
@@ -60,9 +61,19 @@ export const createApp = (dependencies: AppDependencies) => {
   app.options("/v1/auth/qq/login-attempt/:attemptId", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/auth/logout", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/__local/accounts", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/__local/login", (c) => { allowPortal(c); return c.body(null, 204); });
 
   const requireMaintainer = async (c: any) => {
     const auth = await dependencies.authenticate(c.req.raw, c.env);
+    if (!auth && c.env.LOCAL_DEV_AUTH === "true") {
+      const sessionToken = portalSessionToken(c.req.raw);
+      if (sessionToken) {
+        const player = await dependencies.services(c.env).getCurrentPlayer({ sessionToken });
+        if (player?.player.playerId === "local-admin") return { auth: { actorType: "user" as const, subject: "local-admin", roles: ["maintainer"], provider: "local-dev" } };
+        if (player) return { error: errorResponse(c, 403, "FORBIDDEN", "The local account cannot manage administrative data") };
+      }
+    }
     if (!auth) return { error: errorResponse(c, 401, "UNAUTHENTICATED", "Authentication is required") };
     if (!auth.roles.includes("maintainer")) return { error: errorResponse(c, 403, "FORBIDDEN", "The actor cannot manage administrative data") };
     return { auth };
@@ -73,6 +84,27 @@ export const createApp = (dependencies: AppDependencies) => {
     const parsed = qqLoginAttemptRequestSchema.safeParse(await parseBody(c.req.raw));
     if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
     return c.json(await dependencies.services(c.env).createQqLoginAttempt(parsed.data), 201);
+  });
+
+  app.get("/v1/__local/accounts", async (c) => {
+    allowPortal(c);
+    if (c.env.LOCAL_DEV_AUTH !== "true") return errorResponse(c, 404, "NOT_FOUND", "The local development API is disabled");
+    return c.json({ contractVersion: "1" as const, accounts: await dependencies.services(c.env).listLocalDevAccounts() });
+  });
+
+  app.post("/v1/__local/login", async (c) => {
+    allowPortal(c);
+    if (c.env.LOCAL_DEV_AUTH !== "true") return errorResponse(c, 404, "NOT_FOUND", "The local development API is disabled");
+    const body = await parseBody(c.req.raw) as { accountId?: unknown };
+    if (typeof body?.accountId !== "string") return errorResponse(c, 422, "INVALID_REQUEST", "The local account is required");
+    try {
+      const result = await dependencies.services(c.env).createLocalDevSession({ accountId: body.accountId });
+      c.header("Set-Cookie", sessionCookie(c.req.raw, result.sessionToken, 2592000));
+      return c.json({ contractVersion: "1" as const, status: "authenticated" as const });
+    } catch (error) {
+      if (error instanceof Error && error.message === "LOCAL_ACCOUNT_NOT_FOUND") return errorResponse(c, 404, "LOCAL_ACCOUNT_NOT_FOUND", "The local account does not exist");
+      throw error;
+    }
   });
 
   app.get("/v1/auth/qq/login-attempt/:attemptId", async (c) => {
@@ -137,7 +169,14 @@ export const createApp = (dependencies: AppDependencies) => {
   });
 
   app.get("/v1/admin/qq/groups", async (c) => {
-    const auth = await dependencies.authenticate(c.req.raw, c.env);
+    let auth = await dependencies.authenticate(c.req.raw, c.env);
+    if (!auth && c.env.LOCAL_DEV_AUTH === "true") {
+      const sessionToken = portalSessionToken(c.req.raw);
+      if (sessionToken) {
+        const player = await dependencies.services(c.env).getCurrentPlayer({ sessionToken });
+        if (player?.player.playerId === "local-admin") auth = { actorType: "user" as const, subject: "local-admin", roles: ["maintainer"], provider: "local-dev" };
+      }
+    }
     if (!auth) return errorResponse(c, 401, "UNAUTHENTICATED", "Authentication is required");
     if (!auth.roles.includes("maintainer") && !auth.roles.includes("channel:read")) return errorResponse(c, 403, "FORBIDDEN", "The actor cannot read group access");
     return c.json({ contractVersion: "1", items: await dependencies.services(c.env).listQqGroupAccess(auth) });

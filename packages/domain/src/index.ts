@@ -17,6 +17,13 @@ import type {
   CurrentPlayerResponse,
 } from "@owbastion/contracts";
 
+export type LocalDevAccount = {
+  accountId: string;
+  playerId: string;
+  playerName: string;
+  isAdmin: boolean;
+};
+
 export type AuthContext = {
   actorType: "service" | "user";
   subject: string;
@@ -39,6 +46,8 @@ export type PlatformServices = {
   removeAdminBinding(input: { bindingId: string }, auth: AuthContext, idempotencyKey: string): Promise<void>;
   getCurrentPlayer(input: { sessionToken: string }): Promise<CurrentPlayerResponse | null>;
   logoutPortalSession(input: { sessionToken: string }): Promise<void>;
+  listLocalDevAccounts(): Promise<LocalDevAccount[]>;
+  createLocalDevSession(input: { accountId: string }): Promise<{ sessionToken: string }>;
 };
 
 export type Authenticator<Env> = (request: Request, env: Env) => Promise<AuthContext | null>;

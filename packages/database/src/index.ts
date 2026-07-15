@@ -256,6 +256,28 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       await db.delete(qqSessions).where(eq(qqSessions.tokenHash, await hashRequest(input.sessionToken)));
     },
 
+    async listLocalDevAccounts() {
+      const accounts = await db.select().from(playerAccounts).where(or(eq(playerAccounts.playerId, "local-player"), eq(playerAccounts.playerId, "local-admin"))).orderBy(playerAccounts.playerId);
+      return accounts.map((account) => ({ accountId: account.id, playerId: account.playerId, playerName: account.playerName, isAdmin: account.playerId === "local-admin" }));
+    },
+
+    async createLocalDevSession(input) {
+      const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, input.accountId)).get();
+      if (!account || !["local-player", "local-admin"].includes(account.playerId)) throw new Error("LOCAL_ACCOUNT_NOT_FOUND");
+      const binding = await db.select().from(bindings).where(eq(bindings.playerAccountId, account.id)).get();
+      if (!binding) throw new Error("LOCAL_ACCOUNT_NOT_FOUND");
+      const timestamp = now();
+      const attemptId = `local-${account.playerId}`;
+      const sessionToken = randomToken();
+      const attemptTokenHash = await hashRequest(`local-attempt-${account.playerId}`);
+      const codeHash = await hashRequest(`LOCAL-${account.playerId}`);
+      const sessionTokenHash = await hashRequest(sessionToken);
+      await db.insert(qqLoginAttempts).values({ id: attemptId, tokenHash: attemptTokenHash, codeHash, status: "verified", groupOpenId: binding.groupOpenId, memberOpenId: binding.memberOpenId, environment: "test", sessionTokenHash, sessionIssuedAt: timestamp, expiresAt: timestamp + sessionTtlMs, createdAt: timestamp, verifiedAt: timestamp }).onConflictDoUpdate({ target: qqLoginAttempts.id, set: { groupOpenId: binding.groupOpenId, memberOpenId: binding.memberOpenId, environment: "test", sessionTokenHash, sessionIssuedAt: timestamp, expiresAt: timestamp + sessionTtlMs, status: "verified", verifiedAt: timestamp } });
+      await db.delete(qqSessions).where(eq(qqSessions.attemptId, attemptId));
+      await db.insert(qqSessions).values({ id: crypto.randomUUID(), attemptId, groupOpenId: binding.groupOpenId, memberOpenId: binding.memberOpenId, environment: "test", tokenHash: sessionTokenHash, expiresAt: timestamp + sessionTtlMs, createdAt: timestamp });
+      return { sessionToken };
+    },
+
     async createBinding(input: QqBindingRequest, auth, idempotencyKey) {
       const replay = await replayOrConflict<ReturnType<PlatformServices["createBinding"]> extends Promise<infer T> ? T : never>(db, auth.subject, "qq.binding.create", idempotencyKey, input);
       if (replay) return replay;

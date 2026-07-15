@@ -22,6 +22,27 @@ Apply local migrations with:
 pnpm exec wrangler d1 migrations apply DB --local
 ~~~
 
+For Portal development, use the complete local environment:
+
+~~~bash
+pnpm dev:local
+~~~
+
+This applies local migrations, seeds deterministic player/submission fixtures,
+starts the Worker at `http://localhost:8787`, and starts the Portal at
+`http://localhost:3000`. The login page exposes local development accounts only
+when `LOCAL_DEV_AUTH=true`; the selected account receives a real D1-backed
+Portal session. The local administrator account can use `/admin`, while the
+ordinary local player cannot.
+
+`pnpm dev:portal` remains the hot-reload development server. The one-command
+entry builds the Portal and serves the local production-shaped output so it can
+start reliably together with the Worker; rerun it after Portal source changes.
+
+The local login does not represent QQ authentication and never enables the
+local branch in production. Real `/绑定`, `/验证`, `/成就挑战`, QQ webhook, and
+QQ gateway tests still require a test QQ application and real QQ credentials.
+
 Migrations are forward-only. Add a corrective migration instead of rewriting
 an applied migration, and verify it against a restored local database.
 
