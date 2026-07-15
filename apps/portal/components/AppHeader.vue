@@ -4,6 +4,8 @@ const loggingOut = ref(false);
 const menuOpen = ref(false);
 const menuButton = ref<HTMLButtonElement | null>(null);
 const menuPanel = ref<HTMLElement | null>(null);
+const route = useRoute();
+const isAdminPage = computed(() => route.path.startsWith("/admin"));
 
 onMounted(() => { if (!loaded.value) void refresh(); });
 
@@ -50,14 +52,14 @@ async function signOut() {
   <header class="app-header-wrap">
     <div class="app-header">
       <NuxtLink to="/" class="brand" aria-label="躲避堡垒 3 首页"><span class="brand-mark" aria-hidden="true">O</span><span>躲避堡垒 3</span></NuxtLink>
-      <nav class="main-nav" aria-label="主导航"><NuxtLink to="/#events">事件</NuxtLink><NuxtLink to="/achievements">成就</NuxtLink><NuxtLink to="/#rankings">天梯排名</NuxtLink><NuxtLink to="/#rotation">轮换挑战</NuxtLink></nav>
+      <nav class="main-nav" :aria-label="isAdminPage ? '管理导航' : '主导航'"><template v-if="isAdminPage"><NuxtLink to="/admin">管理后台</NuxtLink><NuxtLink to="/admin/titles">称号迁移</NuxtLink></template><template v-else><NuxtLink to="/#events">事件</NuxtLink><NuxtLink to="/achievements">成就</NuxtLink><NuxtLink to="/#rankings">天梯排名</NuxtLink><NuxtLink to="/#rotation">轮换挑战</NuxtLink></template></nav>
       <div class="account-actions">
         <ThemeMenu />
         <AccountMenu v-if="player" :player="player.player" @logout="signOut" />
         <NuxtLink v-else to="/login" class="login-link">登录</NuxtLink>
       </div>
       <button ref="menuButton" class="mobile-menu-toggle" type="button" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" :aria-expanded="menuOpen" aria-controls="mobile-nav" @click="toggleMenu"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="!menuOpen" d="M4 7h16M4 12h16M4 17h16" /><path v-else d="M6 6l12 12M18 6L6 18" /></svg></button>
-      <nav v-show="menuOpen" id="mobile-nav" ref="menuPanel" class="mobile-nav" aria-label="移动端主导航"><NuxtLink to="/#events" @click="closeMenu()">事件</NuxtLink><NuxtLink to="/achievements" @click="closeMenu()">成就</NuxtLink><NuxtLink to="/#rankings" @click="closeMenu()">天梯排名</NuxtLink><NuxtLink to="/#rotation" @click="closeMenu()">轮换挑战</NuxtLink></nav>
+      <nav v-show="menuOpen" id="mobile-nav" ref="menuPanel" class="mobile-nav" :aria-label="isAdminPage ? '移动端管理导航' : '移动端主导航'"><template v-if="isAdminPage"><NuxtLink to="/admin" @click="closeMenu()">管理后台</NuxtLink><NuxtLink to="/admin/titles" @click="closeMenu()">称号迁移</NuxtLink></template><template v-else><NuxtLink to="/#events" @click="closeMenu()">事件</NuxtLink><NuxtLink to="/achievements" @click="closeMenu()">成就</NuxtLink><NuxtLink to="/#rankings" @click="closeMenu()">天梯排名</NuxtLink><NuxtLink to="/#rotation" @click="closeMenu()">轮换挑战</NuxtLink></template></nav>
     </div>
   </header>
 </template>

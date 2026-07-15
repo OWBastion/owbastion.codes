@@ -19,14 +19,19 @@
     "pretest": "pnpm --filter @owbastion/portal exec nuxi prepare",
     "typecheck:portal": "pnpm --filter @owbastion/portal typecheck",
     "typecheck:api": "pnpm --filter @owbastion/api typecheck",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:portal-ui --run",
+    "test:portal-ui": "pnpm --filter @owbastion/portal run test:ui",
     "test:api": "pnpm exec vitest run apps/api",
     "typecheck": "pnpm --recursive --if-present run typecheck",
     "check": "pnpm run test && pnpm run typecheck && pnpm run build"
   },
   "devDependencies": {
+    "@nuxt/kit": "^4.4.8",
+    "@nuxt/test-utils": "^4.0.3",
+    "@vue/test-utils": "^2.4.6",
     "@cloudflare/workers-types": "^4.20250705.0",
     "drizzle-kit": "^0.31.4",
+    "happy-dom": "^20.10.6",
     "typescript": "^5.8.3",
     "vitest": "^4.1.10",
     "wrangler": "^4.20.5"

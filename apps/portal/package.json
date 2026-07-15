@@ -5,6 +5,7 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
+    "test:ui": "vitest --config vitest.config.ts",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
