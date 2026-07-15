@@ -35,7 +35,8 @@ export function useLocalDevAuth() {
     errorMessage.value = "";
     try {
       await $fetch(`${config.public.apiBaseUrl}/v1/__local/login`, { method: "POST", body: { accountId: selectedAccountId.value }, credentials: "include", retry: 0, timeout: 8_000 });
-      await navigateTo("/me");
+      const account = accounts.value.find((item) => item.accountId === selectedAccountId.value);
+      await navigateTo(account?.isAdmin ? "/admin" : "/me");
     } catch {
       errorMessage.value = "本地开发登录失败，请确认本地 API 和 seed 已完成。";
     } finally {
