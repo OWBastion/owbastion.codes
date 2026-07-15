@@ -14,9 +14,10 @@ The Nuxt Portal implements the public landing page, QQ login, player center,
 submission-status view, and platform-session-protected `/admin` player/group management.
 
 The first Portal map-challenge slice includes database-backed map and achievement
-catalogs, upload validation, Queue-backed
-OCR orchestration, and maintainer review. Grants, title issuance, feature
-switches, and Bastion/GitHub orchestration are not implemented.
+catalogs, a public read-only achievement directory, upload validation, Queue-backed
+OCR orchestration, maintainer review, and the administrator-confirmed migration
+of historical titles to player accounts are implemented. New title issuance,
+feature switches, and Bastion/GitHub orchestration are not implemented.
 
 Apply local migrations with:
 
@@ -74,7 +75,8 @@ Keep domain logic independent from HTTP and storage adapters. Add migrations,
 tests, and runbooks with operational changes. Avoid broad framework rewrites
 without an architecture decision record.
 
-Player submission targets are read from the D1 `maps` and
+The public achievement directory reads active global achievement challenges and
+does not expose player data. Player submission targets are read from the D1 `maps` and
 `achievement_challenges` catalogs. The Portal may browse maps and challenges,
 but the upload session accepts only an enabled manual-submission `challengeId`;
 map names and difficulty are resolved by the API. System-automatic title
@@ -85,13 +87,19 @@ must preserve the introduced and retired game-version fields.
 The title catalog is imported from a versioned Bastion snapshot. `PIONEER`,
 `CONQUEROR`, and `DOMINATOR` are map-scoped reward slots; all other imported
 titles are global. Historical Bastion holder names remain source snapshots and
-must not be converted into platform accounts without an explicit identity
-workflow.
+must not be converted into platform accounts automatically. A maintainer may
+create one auditable `player_title_grants` association for a historical holder
+through the administrator migration UI; a mistaken association is revoked with
+a recorded reason rather than deleted. Only active grant records authorize a
+player-facing title result.
 
 ## Testing layers
 
 - Unit and contract tests for current API, Portal, and package behavior.
 - D1 migration and repository tests when persistence changes.
+- Title-grant tests for account isolation, map and global title scope, empty
+  results, duplicate historical-holder associations, revocation, administrator
+  authorization, idempotency, and audit records.
 - Integration tests with fake R2, OCR, GitHub, and QQ clients as those
   integrations are introduced.
 - Queue redelivery, review, grant, and end-to-end tests when those workflows

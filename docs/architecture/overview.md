@@ -36,7 +36,7 @@ released game content remains authoritative in OWBastion/Bastion.
 - **Portal:** public landing content, QQ browser login, current-player data,
   map, achievement challenge, and title catalogs, player screenshot upload, recent
   submission/status views, and review UI.
-- **API:** health, authenticated QQ binding/submission writes, player upload
+- **API:** health, a public read-only achievement catalog, authenticated QQ binding/submission writes, player upload
   sessions, Queue-backed OCR processing, public submission status, QQ login
   verification, session lookup/logout, and a platform-session-protected
   administrative API for players, groups, and submissions.
