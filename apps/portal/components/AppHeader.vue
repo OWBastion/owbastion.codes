@@ -1,8 +1,39 @@
 <script setup lang="ts">
 const { player, loaded, refresh, logout } = useCurrentPlayer();
 const loggingOut = ref(false);
+const menuOpen = ref(false);
+const menuButton = ref<HTMLButtonElement | null>(null);
+const menuPanel = ref<HTMLElement | null>(null);
 
 onMounted(() => { if (!loaded.value) void refresh(); });
+
+function closeMenu(returnFocus = false) {
+  menuOpen.value = false;
+  if (returnFocus) nextTick(() => menuButton.value?.focus());
+}
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+  if (menuOpen.value) nextTick(() => menuPanel.value?.querySelector<HTMLAnchorElement>("a")?.focus());
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (menuOpen.value && !(event.target instanceof Node && menuPanel.value?.parentElement?.contains(event.target))) closeMenu();
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && menuOpen.value) closeMenu(true);
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", handleDocumentPointerDown);
+  document.addEventListener("keydown", handleDocumentKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", handleDocumentPointerDown);
+  document.removeEventListener("keydown", handleDocumentKeydown);
+});
 
 async function signOut() {
   loggingOut.value = true;
@@ -20,10 +51,12 @@ async function signOut() {
     <div class="app-header">
       <NuxtLink to="/" class="brand" aria-label="躲避堡垒 3 首页"><span class="brand-mark" aria-hidden="true">O</span><span>躲避堡垒 3</span></NuxtLink>
       <nav class="main-nav" aria-label="主导航"><NuxtLink to="/#events">事件</NuxtLink><NuxtLink to="/#achievements">成就</NuxtLink><NuxtLink to="/#rankings">天梯排名</NuxtLink><NuxtLink to="/#rotation">轮换挑战</NuxtLink></nav>
+      <button ref="menuButton" class="mobile-menu-toggle" type="button" :aria-expanded="menuOpen" aria-controls="mobile-nav" @click="toggleMenu"><span>菜单</span><span class="menu-icon" aria-hidden="true">{{ menuOpen ? '×' : '＋' }}</span></button>
       <div class="account-actions">
         <template v-if="player"><NuxtLink to="/me" class="account-link">我的</NuxtLink><button class="text-button" type="button" :disabled="loggingOut" @click="signOut">退出</button></template>
         <NuxtLink v-else to="/login" class="login-link">登录 <span aria-hidden="true">↗</span></NuxtLink>
       </div>
+      <nav v-show="menuOpen" id="mobile-nav" ref="menuPanel" class="mobile-nav" aria-label="移动端主导航"><NuxtLink to="/#events" @click="closeMenu()">事件</NuxtLink><NuxtLink to="/#achievements" @click="closeMenu()">成就</NuxtLink><NuxtLink to="/#rankings" @click="closeMenu()">天梯排名</NuxtLink><NuxtLink to="/#rotation" @click="closeMenu()">轮换挑战</NuxtLink></nav>
     </div>
   </header>
 </template>
@@ -31,15 +64,27 @@ async function signOut() {
 <style scoped>
 .app-header-wrap { position: sticky; z-index: 10; top: 14px; width: min(100% - 28px, 1280px); margin: 0 auto; }
 .app-header { display: flex; align-items: center; gap: 28px; min-height: 54px; padding: 0 16px 0 12px; border: 1px solid var(--line); border-radius: 14px; background: oklch(18% 0.013 48 / 82%); box-shadow: 0 8px 22px -18px oklch(0% 0 0 / 80%); backdrop-filter: blur(20px) saturate(145%); }
-.brand { display: inline-flex; align-items: center; gap: 9px; color: var(--text); font-size: .9rem; font-weight: 650; letter-spacing: -.025em; text-decoration: none; white-space: nowrap; }
+.brand { display: inline-flex; min-width: 0; align-items: center; gap: 9px; color: var(--text); font-size: .9rem; font-weight: 650; letter-spacing: -.025em; text-decoration: none; white-space: nowrap; }
+.brand > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: oklch(22% 0.025 50); background: var(--accent); font-size: .92rem; font-weight: 760; }
 .main-nav { display: flex; flex: 1; justify-content: center; gap: clamp(16px, 2.6vw, 34px); color: var(--muted); font-size: .78rem; }
 .main-nav a, .account-link { text-decoration: none; transition: color 160ms ease; }
 .main-nav a:hover, .account-link:hover { color: var(--text); }
-.account-actions { display: flex; align-items: center; gap: 14px; font-size: .78rem; font-weight: 650; }
+.account-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 14px; font-size: .78rem; font-weight: 650; }
 .account-link, .text-button { color: var(--muted); }
 .text-button { padding: 0; border: 0; background: transparent; }
 .login-link { min-height: 34px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface-raised); text-decoration: none; transition: transform 100ms ease-out, background 160ms ease; }
 .login-link:active { transform: scale(.97); }
-@media (max-width: 620px) { .app-header-wrap { top: 8px; } .app-header { flex-wrap: wrap; gap: 12px; padding: 10px 12px; } .main-nav { order: 3; width: 100%; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: .72rem; } }
+.mobile-menu-toggle, .mobile-nav { display: none; }
+@media (max-width: 760px) {
+  .app-header-wrap { top: max(8px, env(safe-area-inset-top)); }
+  .app-header { position: relative; gap: 10px; min-height: 52px; padding: 6px 8px 6px 10px; }
+  .main-nav { display: none; }
+  .mobile-menu-toggle { display: inline-flex; flex: 0 0 auto; min-height: 40px; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); font-size: .75rem; font-weight: 680; }
+  .menu-icon { color: var(--accent); font-size: 1rem; line-height: 1; }
+  .mobile-nav { position: absolute; z-index: 2; inset: calc(100% + 8px) 0 auto; display: grid; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in oklch, var(--surface-raised) 94%, black); box-shadow: 0 18px 34px -22px oklch(0% 0 0 / 90%); backdrop-filter: blur(20px) saturate(145%); }
+  .mobile-nav a { display: flex; min-height: 44px; align-items: center; padding: 0 12px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+  .mobile-nav a:hover, .mobile-nav a:focus-visible { color: var(--text); background: var(--surface); }
+}
+@media (max-width: 380px) { .app-header { gap: 6px; }.account-actions { gap: 8px; }.brand { gap: 7px; font-size: .82rem; }.brand-mark { width: 26px; height: 26px; }.mobile-menu-toggle { padding-inline: 8px; } }
 </style>
