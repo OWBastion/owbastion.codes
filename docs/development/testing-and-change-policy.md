@@ -24,12 +24,12 @@ pnpm exec wrangler d1 migrations apply DB --local
 ~~~
 
 Production deployments bootstrap the administrator automatically from the
-GitHub production-environment `ADMIN_PLAYER_ID` secret after applying remote
+GitHub production-environment `ADMIN_BATTLETAG` secret after applying remote
 migrations. For manual recovery, update the account directly in D1 with a
-reviewed player ID:
+reviewed BattleTag:
 
 ~~~bash
-pnpm exec wrangler d1 execute owbastion-codes-prod --remote --command "UPDATE player_accounts SET is_admin = 1, updated_at = CAST(strftime('%s','now') AS INTEGER) * 1000 WHERE player_id = 'YOUR_PLAYER_ID';"
+pnpm exec wrangler d1 execute owbastion-codes-prod --remote --command "UPDATE player_accounts SET is_admin = 1, updated_at = CAST(strftime('%s','now') AS INTEGER) * 1000 WHERE normalized_player_name = 'yourname' AND player_id = '1234';"
 ~~~
 
 The account must log in again after promotion so the Portal refreshes its session

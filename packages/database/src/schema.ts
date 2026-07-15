@@ -31,7 +31,7 @@ export const playerAccounts = sqliteTable("player_accounts", {
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => ({
-  player: uniqueIndex("player_accounts_player_id_idx").on(table.playerId),
+  battleTag: uniqueIndex("player_accounts_battletag_idx").on(table.normalizedPlayerName, table.playerId),
 }));
 
 export const submissions = sqliteTable("submissions", {

@@ -394,18 +394,19 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       if (replay) return replay;
 
       const existing = await db.select().from(bindings).where(and(eq(bindings.provider, input.provider), eq(bindings.groupOpenId, input.groupOpenId), eq(bindings.memberOpenId, input.memberOpenId))).get();
+      const normalizedPlayerName = normalizePlayerName(input.playerName);
       let account = existing
         ? await db.select().from(playerAccounts).where(eq(playerAccounts.id, existing.playerAccountId)).get()
-        : await db.select().from(playerAccounts).where(eq(playerAccounts.playerId, input.playerId)).get();
-      if (existing && account?.playerId !== input.playerId) throw new Error("BINDING_CONFLICT");
+        : await db.select().from(playerAccounts).where(and(eq(playerAccounts.normalizedPlayerName, normalizedPlayerName), eq(playerAccounts.playerId, input.playerId))).get();
+      if (existing && (account?.playerId !== input.playerId || account.normalizedPlayerName !== normalizedPlayerName)) throw new Error("BINDING_CONFLICT");
       if (account?.status === "banned") throw new Error("PLAYER_BANNED");
       if (!account) {
         const timestamp = now();
-        account = { id: crypto.randomUUID(), playerId: input.playerId, playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), isAdmin: 0, status: "active", bannedAt: null, bannedBy: null, banReason: null, createdAt: timestamp, updatedAt: timestamp };
+        account = { id: crypto.randomUUID(), playerId: input.playerId, playerName: input.playerName, normalizedPlayerName, isAdmin: 0, status: "active", bannedAt: null, bannedBy: null, banReason: null, createdAt: timestamp, updatedAt: timestamp };
         await db.insert(playerAccounts).values(account);
       } else if (account.playerName !== input.playerName) {
-        await db.update(playerAccounts).set({ playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), updatedAt: now() }).where(eq(playerAccounts.id, account.id));
-        account = { ...account, playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), updatedAt: now() };
+        await db.update(playerAccounts).set({ playerName: input.playerName, normalizedPlayerName, updatedAt: now() }).where(eq(playerAccounts.id, account.id));
+        account = { ...account, playerName: input.playerName, normalizedPlayerName, updatedAt: now() };
       }
       if (!account) throw new Error("PLAYER_NOT_FOUND");
 
