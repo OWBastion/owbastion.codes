@@ -11,17 +11,15 @@ group-access route. D1 migrations back the current business state.
 When EVIDENCE_BUCKET is configured, submission creation persists validated QQ
 image sources to private R2 and advances successful submissions to ocr_pending.
 The Nuxt Portal implements the public landing page, QQ login, player center,
-and submission-status view.
+submission-status view, and Access-protected `/admin` player/group management.
 
-OCR orchestration, review, grants, snapshot import, queue processing, admin
-applications, and Bastion/GitHub orchestration are not implemented. The current
-maintainer group-access route also needs a maintainer authentication flow before
-it can be used.
+OCR orchestration, review, grants, snapshot import, queue processing, feature
+switches, and Bastion/GitHub orchestration are not implemented.
 
 Apply local migrations with:
 
 ~~~bash
-pnpm exec wrangler d1 migrations apply owbastion-codes-local --local
+pnpm exec wrangler d1 migrations apply DB --local
 ~~~
 
 Migrations are forward-only. Add a corrective migration instead of rewriting

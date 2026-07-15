@@ -53,6 +53,26 @@ export const qqLoginVerifyResponseSchema = z.object({
   environment: z.enum(["production", "test"]),
 });
 export const qqGroupAccessRequestSchema = z.object({ contractVersion, groupOpenId: externalId, environment: z.enum(["production", "test"]), enabled: z.boolean() });
+export const qqGroupAccessResponseSchema = qqGroupAccessRequestSchema.extend({ updatedAt: z.number().int() });
+
+const adminPlayerStatus = z.enum(["active", "banned"]);
+const adminBindingSchema = z.object({
+  bindingId: z.string().uuid(),
+  provider: z.literal("qq"),
+  groupOpenId: externalId,
+  memberOpenId: externalId,
+  createdAt: z.number().int(),
+});
+export const adminPlayerSummarySchema = z.object({
+  playerAccountId: z.string().uuid(),
+  playerId,
+  playerName: z.string().trim().min(1).max(64),
+  status: adminPlayerStatus,
+  bindingCount: z.number().int().nonnegative(),
+  updatedAt: z.number().int(),
+});
+export const adminPlayerListResponseSchema = z.object({ contractVersion, items: z.array(adminPlayerSummarySchema), page: z.number().int().positive(), pageSize: z.number().int().positive(), hasMore: z.boolean() });
+export const adminPlayerStatusRequestSchema = z.object({ contractVersion, status: adminPlayerStatus, reason: z.string().trim().max(256).optional() });
 
 const attachmentSchema = z.object({
   externalAttachmentId: externalId,
@@ -98,6 +118,11 @@ export const submissionStatusResponseSchema = z.object({
   updatedAt: z.number().int(),
 });
 
+export const adminPlayerDetailSchema = adminPlayerSummarySchema.extend({
+  bindings: z.array(adminBindingSchema),
+  recentSubmissions: z.array(submissionStatusResponseSchema.omit({ contractVersion: true })).max(10),
+});
+
 export const currentPlayerResponseSchema = z.object({
   contractVersion,
   player: z.object({
@@ -125,6 +150,11 @@ export type QqLoginStatusResponse = z.infer<typeof qqLoginStatusResponseSchema>;
 export type QqLoginVerifyRequest = z.infer<typeof qqLoginVerifyRequestSchema>;
 export type QqLoginVerifyResponse = z.infer<typeof qqLoginVerifyResponseSchema>;
 export type QqGroupAccessRequest = z.infer<typeof qqGroupAccessRequestSchema>;
+export type QqGroupAccessResponse = z.infer<typeof qqGroupAccessResponseSchema>;
+export type AdminPlayerSummary = z.infer<typeof adminPlayerSummarySchema>;
+export type AdminPlayerDetail = z.infer<typeof adminPlayerDetailSchema>;
+export type AdminPlayerListResponse = z.infer<typeof adminPlayerListResponseSchema>;
+export type AdminPlayerStatusRequest = z.infer<typeof adminPlayerStatusRequestSchema>;
 export type SubmissionRequest = z.infer<typeof submissionRequestSchema>;
 export type SubmissionResponse = z.infer<typeof submissionResponseSchema>;
 export type SubmissionStatusResponse = z.infer<typeof submissionStatusResponseSchema>;

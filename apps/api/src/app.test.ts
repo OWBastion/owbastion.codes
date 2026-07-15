@@ -3,6 +3,9 @@ import type { PlatformServices } from "@owbastion/domain";
 import { createApp, type RuntimeEnv } from "./app";
 
 const auth = async () => ({ actorType: "service" as const, subject: "qqbot", roles: ["channel:write"], provider: "test" });
+const adminAuth = async (request: Request) => request.headers.get("cf-access-authenticated-user-email") === "admin@example.com"
+  ? { actorType: "user" as const, subject: "admin@example.com", roles: ["maintainer"], provider: "cloudflare-access" }
+  : null;
 
 const services: PlatformServices = {
   createBinding: async () => ({ contractVersion: "1", bindingId: "00000000-0000-0000-0000-000000000001", identityId: "00000000-0000-0000-0000-000000000002", provider: "qq", groupOpenId: "group-1", memberOpenId: "member-1", playerName: "Player", playerId: "1234" }),
@@ -12,6 +15,11 @@ const services: PlatformServices = {
   getQqLoginStatus: async () => ({ contractVersion: "1", status: "pending" }),
   verifyQqLogin: async () => ({ contractVersion: "1", status: "verified", environment: "test" }),
   upsertQqGroupAccess: async () => {},
+  listQqGroupAccess: async () => [],
+  listAdminPlayers: async () => ({ contractVersion: "1" as const, items: [], page: 1, pageSize: 25, hasMore: false }),
+  getAdminPlayer: async () => { throw new Error("PLAYER_NOT_FOUND"); },
+  setAdminPlayerStatus: async () => {},
+  removeAdminBinding: async () => {},
   getCurrentPlayer: async ({ sessionToken }) => sessionToken === "session-token" ? {
     contractVersion: "1",
     player: { playerId: "1234", playerName: "Player", bindingStatus: "bound" },
@@ -97,5 +105,14 @@ describe("API", () => {
     const response = await app.request("http://localhost/v1/qq/auth/verify", { method: "POST", headers: { authorization: "Bearer service", "content-type": "application/json" }, body: JSON.stringify({ contractVersion: "1", provider: "qq", code: "ABC234", groupOpenId: "group-1", memberOpenId: "member-1", messageId: "message-1" }) }, env);
     expect(response.status).toBe(422);
     expect((await response.json() as { error: { code: string } }).error.code).toBe("IDEMPOTENCY_KEY_REQUIRED");
+  });
+
+  it("protects administrative player data with the Access identity", async () => {
+    const adminApp = createApp({ authenticate: adminAuth, services: () => services });
+    const denied = await adminApp.request("http://localhost/v1/admin/player-accounts", {}, env);
+    expect(denied.status).toBe(401);
+    const allowed = await adminApp.request("http://localhost/v1/admin/player-accounts", { headers: { "cf-access-authenticated-user-email": "admin@example.com" } }, env);
+    expect(allowed.status).toBe(200);
+    expect(await allowed.json()).toMatchObject({ contractVersion: "1", items: [], page: 1 });
   });
 });

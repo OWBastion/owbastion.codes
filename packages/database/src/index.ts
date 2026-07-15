@@ -1,4 +1,4 @@
-import { desc, eq, and, gt } from "drizzle-orm";
+import { desc, eq, and, gt, like, or, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { AuthContext, PlatformServices } from "@owbastion/domain";
 import type { QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, SubmissionRequest } from "@owbastion/contracts";
@@ -94,6 +94,85 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
   const db = drizzle(database);
 
   return {
+    async listQqGroupAccess() {
+      const groups = await db.select().from(qqGroupAccess).orderBy(desc(qqGroupAccess.updatedAt));
+      return groups.map((group) => ({ contractVersion: "1" as const, groupOpenId: group.groupOpenId, environment: group.environment as "production" | "test", enabled: group.enabled === 1, updatedAt: group.updatedAt }));
+    },
+
+    async listAdminPlayers(input) {
+      const conditions = [];
+      if (input.status) conditions.push(eq(playerAccounts.status, input.status));
+      if (input.query) {
+        const query = `%${input.query}%`;
+        const matchingBindings = await db.select({ playerAccountId: bindings.playerAccountId }).from(bindings).where(or(like(bindings.groupOpenId, query), like(bindings.memberOpenId, query)));
+        conditions.push(or(like(playerAccounts.playerId, query), like(playerAccounts.playerName, query), like(playerAccounts.normalizedPlayerName, query), ...(matchingBindings.length ? [inArray(playerAccounts.id, matchingBindings.map((binding) => binding.playerAccountId))] : []))!);
+      }
+      const accounts = await db.select().from(playerAccounts).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(playerAccounts.updatedAt)).limit(input.pageSize + 1).offset((input.page - 1) * input.pageSize);
+      const hasMore = accounts.length > input.pageSize;
+      const items = accounts.slice(0, input.pageSize);
+      return {
+        contractVersion: "1" as const,
+        items: await Promise.all(items.map(async (account) => ({
+          playerAccountId: account.id,
+          playerId: account.playerId,
+          playerName: account.playerName,
+          status: account.status as "active" | "banned",
+          bindingCount: (await db.select().from(bindings).where(eq(bindings.playerAccountId, account.id))).length,
+          updatedAt: account.updatedAt,
+        }))),
+        page: input.page,
+        pageSize: input.pageSize,
+        hasMore,
+      };
+    },
+
+    async getAdminPlayer(input) {
+      const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, input.playerAccountId)).get();
+      if (!account) throw new Error("PLAYER_NOT_FOUND");
+      const playerBindings = await db.select().from(bindings).where(eq(bindings.playerAccountId, account.id)).orderBy(desc(bindings.createdAt));
+      const recentSubmissions = playerBindings.length
+        ? await db.select({ submissionId: submissions.id, status: submissions.status, mapName: submissions.mapName, createdAt: submissions.createdAt, updatedAt: submissions.updatedAt })
+          .from(submissions).where(or(...playerBindings.map((binding) => eq(submissions.bindingId, binding.id)))).orderBy(desc(submissions.createdAt)).limit(10)
+        : [];
+      return {
+        contractVersion: "1" as const,
+        playerAccountId: account.id,
+        playerId: account.playerId,
+        playerName: account.playerName,
+        status: account.status as "active" | "banned",
+        bindingCount: playerBindings.length,
+        updatedAt: account.updatedAt,
+        bindings: playerBindings.map((binding) => ({ bindingId: binding.id, provider: "qq" as const, groupOpenId: binding.groupOpenId, memberOpenId: binding.memberOpenId, createdAt: binding.createdAt })),
+        recentSubmissions: recentSubmissions.map((submission) => ({ ...submission, status: submission.status as "received" | "evidence_pending" | "evidence_stored" | "ocr_pending" | "resubmission_required" })),
+      };
+    },
+
+    async setAdminPlayerStatus(input, auth, idempotencyKey) {
+      const replay = await replayOrConflict<Record<string, never>>(db, auth.subject, "admin.player.status", idempotencyKey, input);
+      if (replay) return;
+      const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, input.playerAccountId)).get();
+      if (!account) throw new Error("PLAYER_NOT_FOUND");
+      const timestamp = now();
+      await db.update(playerAccounts).set({ status: input.status, bannedAt: input.status === "banned" ? timestamp : null, bannedBy: input.status === "banned" ? auth.subject : null, banReason: input.status === "banned" ? input.reason ?? null : null, updatedAt: timestamp }).where(eq(playerAccounts.id, input.playerAccountId));
+      if (input.status === "banned") {
+        const accountBindings = await db.select({ groupOpenId: bindings.groupOpenId, memberOpenId: bindings.memberOpenId }).from(bindings).where(eq(bindings.playerAccountId, input.playerAccountId));
+        if (accountBindings.length) await db.delete(qqSessions).where(or(...accountBindings.map((binding) => and(eq(qqSessions.groupOpenId, binding.groupOpenId), eq(qqSessions.memberOpenId, binding.memberOpenId)))));
+      }
+      await recordIdempotency(db, auth.subject, "admin.player.status", idempotencyKey, input, {});
+      await recordAudit(db, auth, `admin.player.${input.status}`, "player_account", input.playerAccountId, { status: input.status, reason: input.reason ?? null });
+    },
+
+    async removeAdminBinding(input, auth, idempotencyKey) {
+      const replay = await replayOrConflict<Record<string, never>>(db, auth.subject, "admin.binding.remove", idempotencyKey, input);
+      if (replay) return;
+      const binding = await db.select().from(bindings).where(eq(bindings.id, input.bindingId)).get();
+      if (!binding) throw new Error("BINDING_NOT_FOUND");
+      await db.delete(qqSessions).where(and(eq(qqSessions.groupOpenId, binding.groupOpenId), eq(qqSessions.memberOpenId, binding.memberOpenId)));
+      await db.delete(bindings).where(eq(bindings.id, input.bindingId));
+      await recordIdempotency(db, auth.subject, "admin.binding.remove", idempotencyKey, input, {});
+      await recordAudit(db, auth, "admin.binding.remove", "binding", input.bindingId, { playerAccountId: binding.playerAccountId });
+    },
+
     async upsertQqGroupAccess(input: QqGroupAccessRequest, auth) {
       const timestamp = now();
       const existing = await db.select().from(qqGroupAccess).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId)).get();
@@ -139,6 +218,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       if (!group) throw new Error("LOGIN_GROUP_NOT_ALLOWED");
       const binding = await db.select().from(bindings).where(and(eq(bindings.provider, input.provider), eq(bindings.groupOpenId, input.groupOpenId), eq(bindings.memberOpenId, input.memberOpenId))).get();
       if (!binding) throw new Error("LOGIN_BINDING_REQUIRED");
+      const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, binding.playerAccountId)).get();
+      if (!account || account.status === "banned") throw new Error("PLAYER_BANNED");
       const attempt = await db.select().from(qqLoginAttempts).where(and(eq(qqLoginAttempts.codeHash, await hashRequest(input.code)), eq(qqLoginAttempts.status, "pending"))).get();
       if (!attempt) throw new Error("LOGIN_CODE_INVALID");
       if (attempt.expiresAt <= now()) {
@@ -158,7 +239,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       const binding = await db.select().from(bindings).where(and(eq(bindings.provider, "qq"), eq(bindings.groupOpenId, session.groupOpenId), eq(bindings.memberOpenId, session.memberOpenId))).get();
       if (!binding) return null;
       const player = await db.select().from(playerAccounts).where(eq(playerAccounts.id, binding.playerAccountId)).get();
-      if (!player) return null;
+      if (!player || player.status === "banned") return null;
       const recentSubmissions = await db.select({ submissionId: submissions.id, status: submissions.status, mapName: submissions.mapName, createdAt: submissions.createdAt, updatedAt: submissions.updatedAt })
         .from(submissions)
         .where(eq(submissions.bindingId, binding.id))
@@ -184,14 +265,16 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         ? await db.select().from(playerAccounts).where(eq(playerAccounts.id, existing.playerAccountId)).get()
         : await db.select().from(playerAccounts).where(eq(playerAccounts.playerId, input.playerId)).get();
       if (existing && account?.playerId !== input.playerId) throw new Error("BINDING_CONFLICT");
+      if (account?.status === "banned") throw new Error("PLAYER_BANNED");
       if (!account) {
         const timestamp = now();
-        account = { id: crypto.randomUUID(), playerId: input.playerId, playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), createdAt: timestamp, updatedAt: timestamp };
+        account = { id: crypto.randomUUID(), playerId: input.playerId, playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), status: "active", bannedAt: null, bannedBy: null, banReason: null, createdAt: timestamp, updatedAt: timestamp };
         await db.insert(playerAccounts).values(account);
       } else if (account.playerName !== input.playerName) {
         await db.update(playerAccounts).set({ playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), updatedAt: now() }).where(eq(playerAccounts.id, account.id));
         account = { ...account, playerName: input.playerName, normalizedPlayerName: normalizePlayerName(input.playerName), updatedAt: now() };
       }
+      if (!account) throw new Error("PLAYER_NOT_FOUND");
 
       if (existing) {
         if (existing.playerAccountId !== account.id) throw new Error("BINDING_CONFLICT");
@@ -216,6 +299,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       if (replay) return replay;
       const binding = await db.select().from(bindings).where(and(eq(bindings.provider, input.actor.provider), eq(bindings.groupOpenId, input.actor.groupOpenId), eq(bindings.memberOpenId, input.actor.memberOpenId))).get();
       if (!binding) throw new Error("BINDING_NOT_FOUND");
+      const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, binding.playerAccountId)).get();
+      if (!account || account.status === "banned") throw new Error("PLAYER_BANNED");
 
       const submissionId = crypto.randomUUID();
       const timestamp = now();

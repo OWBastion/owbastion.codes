@@ -60,9 +60,11 @@ code, records the group environment, and issues a 30-day browser session when
 the Portal later polls the verified attempt. QQBot replies and recalls the code
 message only after a successful verification.
 
-The group-access route requires a maintainer role. The current authenticator
-only creates the QQBot channel:write identity, so maintainer group configuration
-is not yet operable through the implemented authentication flow.
+Group access is managed through the Access-protected `/admin` Portal. The Worker
+accepts maintainer requests only when the Access email is in `ADMIN_EMAILS`.
+QQBot reads the enabled group snapshot with its service token at startup and on
+the configured refresh interval; it keeps the last successful snapshot when a
+later refresh fails and fails closed before the first successful snapshot.
 
 ## Future integrations
 

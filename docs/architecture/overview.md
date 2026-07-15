@@ -7,15 +7,15 @@
 The repository contains an implemented TypeScript workspace with:
 
 - apps/api: a Hono Cloudflare Worker API;
-- apps/portal: a Nuxt player-facing Portal;
+- apps/portal: a Nuxt player-facing Portal and Access-protected `/admin` control surface;
 - packages/contracts, domain, database, and auth;
 - forward-only D1 migrations for bindings, submissions, evidence metadata, and
   QQ login/session state;
 - an R2 evidence binding used when EVIDENCE_BUCKET is available.
 
-OCR orchestration, review, grants, snapshot import, queues, and administrative
-applications are still planned. Source and tests are authoritative for the
-precise behavior of implemented slices.
+OCR orchestration, review, grants, snapshot import, queues, and feature
+switches remain planned. The first administrative slice now covers player
+account status, QQ bindings, and QQ group access.
 
 ## Mission and ownership
 
@@ -36,13 +36,14 @@ released game content remains authoritative in OWBastion/Bastion.
   player-facing recent submission/status views.
 - **API:** health, authenticated QQ binding/submission writes, public
   submission status, QQ login verification, session lookup/logout, and a
-  maintainer-protected group-access route.
+  Cloudflare Access-protected administrative API for players and group access.
 - **Evidence:** private QQ image retrieval and R2 storage during submission
   creation when the Worker R2 binding is configured.
 
 The Portal is a rendering surface and does not own durable business state.
-Public responses do not expose private evidence, QQ OpenIDs, review notes, or
-unapproved drafts.
+The Portal proxies administrator requests server-side so Access identity headers
+are forwarded to the Worker. Public responses do not expose private evidence,
+QQ OpenIDs, review notes, or unapproved drafts.
 
 ## Design principles
 

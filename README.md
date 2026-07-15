@@ -36,4 +36,4 @@
 
 ## 当前状态
 
-仓库提供 HKG Portal 的 Docker Compose 配置和 Worker API 的 GitHub Actions 部署工作流；运行中的生产状态需单独验证。D1、R2 证据保存、QQ 登录和玩家中心已在代码中实现，队列、OCR、审核和发布编排仍按文档中的分阶段计划推进。
+仓库提供 HKG Portal 的 Docker Compose 配置和 Worker API 的 GitHub Actions 部署工作流；运行中的生产状态需单独验证。D1、R2 证据保存、QQ 登录、玩家中心和 Access 保护的初步管理员功能已在代码中实现，队列、OCR、审核和发布编排仍按文档中的分阶段计划推进。

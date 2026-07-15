@@ -1,9 +1,9 @@
-import { authenticateQqBot } from "@owbastion/auth";
+import { authenticatePlatformActor } from "@owbastion/auth";
 import { createPlatformServices } from "@owbastion/database";
 import { createApp } from "./app";
 
 const app = createApp({
-  authenticate: authenticateQqBot,
+  authenticate: authenticatePlatformActor,
   services: (env) => createPlatformServices(env.DB, env.EVIDENCE_BUCKET),
 });
 

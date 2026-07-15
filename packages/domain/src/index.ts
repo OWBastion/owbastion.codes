@@ -10,6 +10,10 @@ import type {
   QqLoginVerifyRequest,
   QqLoginVerifyResponse,
   QqGroupAccessRequest,
+  QqGroupAccessResponse,
+  AdminPlayerDetail,
+  AdminPlayerListResponse,
+  AdminPlayerStatusRequest,
   CurrentPlayerResponse,
 } from "@owbastion/contracts";
 
@@ -28,6 +32,11 @@ export type PlatformServices = {
   getQqLoginStatus(input: { attemptId: string; attemptToken: string }): Promise<QqLoginStatusResponse>;
   verifyQqLogin(input: QqLoginVerifyRequest, auth: AuthContext, idempotencyKey: string): Promise<QqLoginVerifyResponse>;
   upsertQqGroupAccess(input: QqGroupAccessRequest, auth: AuthContext): Promise<void>;
+  listQqGroupAccess(auth: AuthContext): Promise<QqGroupAccessResponse[]>;
+  listAdminPlayers(input: { query?: string; status?: "active" | "banned"; page: number; pageSize: number }, auth: AuthContext): Promise<AdminPlayerListResponse>;
+  getAdminPlayer(input: { playerAccountId: string }, auth: AuthContext): Promise<AdminPlayerDetail>;
+  setAdminPlayerStatus(input: { playerAccountId: string; status: "active" | "banned"; reason?: string }, auth: AuthContext, idempotencyKey: string): Promise<void>;
+  removeAdminBinding(input: { bindingId: string }, auth: AuthContext, idempotencyKey: string): Promise<void>;
   getCurrentPlayer(input: { sessionToken: string }): Promise<CurrentPlayerResponse | null>;
   logoutPortalSession(input: { sessionToken: string }): Promise<void>;
 };
