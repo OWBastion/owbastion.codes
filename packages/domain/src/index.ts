@@ -21,7 +21,7 @@ import type {
   Challenge,
   Map,
   Title,
-  OwnedTitle, HistoricalTitleGrant, AdminTitleGrantRequest,
+  OwnedTitle, HistoricalTitleGrant, AdminTitleGrantRequest, AdminTitleGrantBulkRequest, AdminTitleGrantBulkResponse,
   AdminChallenge, AdminChallengeListResponse, AdminChallengeUpdateRequest,
   PlayerUploadSessionRequest,
   PlayerUploadSessionResponse,
@@ -48,6 +48,7 @@ export type PlatformServices = {
   listCurrentPlayerTitles(input: { sessionToken: string }): Promise<OwnedTitle[] | null>;
   listHistoricalTitleGrants(input: { query?: string }, auth: AuthContext): Promise<HistoricalTitleGrant[]>;
   createAdminTitleGrant(input: AdminTitleGrantRequest, auth: AuthContext, idempotencyKey: string): Promise<void>;
+  createAdminTitleGrantBulk(input: AdminTitleGrantBulkRequest, auth: AuthContext, idempotencyKey: string): Promise<AdminTitleGrantBulkResponse>;
   revokeAdminTitleGrant(input: { grantId: string; reason: string }, auth: AuthContext, idempotencyKey: string): Promise<void>;
   listAdminChallenges(input: { family?: "map" | "achievement"; status?: string }, auth: AuthContext): Promise<AdminChallengeListResponse>;
   updateAdminChallenge(input: AdminChallengeUpdateRequest & { challengeId: string }, auth: AuthContext, idempotencyKey: string): Promise<AdminChallenge>;

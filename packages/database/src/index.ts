@@ -1,4 +1,4 @@
-import { desc, eq, and, gt, like, or, inArray } from "drizzle-orm";
+import { desc, eq, and, gt, like, or, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { AuthContext, PlatformServices } from "@owbastion/domain";
 import type { AdminChallenge, AdminChallengeUpdateRequest, Challenge, Map, QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, SubmissionRequest, Title } from "@owbastion/contracts";
@@ -286,6 +286,26 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       else await db.insert(playerTitleGrants).values({ id, playerAccountId: player.id, historicalTitleGrantId: historical.id, status: "active", grantedBy: auth.subject, grantedAt: timestamp });
       const grantId = existing?.id ?? id;
       await recordIdempotency(db, auth.subject, "admin.title.grant", idempotencyKey, input, {}); await recordAudit(db, auth, "admin.title.grant", "player_title_grant", grantId, { playerAccountId: player.id, historicalTitleGrantId: historical.id });
+    },
+
+    async createAdminTitleGrantBulk(input, auth, idempotencyKey) {
+      const replay = await replayOrConflict<{ contractVersion: "1"; grantedCount: number }>(db, auth.subject, "admin.title.grant.bulk", idempotencyKey, input);
+      if (replay) return replay;
+      const player = await db.select().from(playerAccounts).where(eq(playerAccounts.id, input.playerAccountId)).get();
+      if (!player) throw new Error("PLAYER_NOT_FOUND");
+      const historical = await db.select({ id: historicalTitleGrants.id }).from(historicalTitleGrants)
+        .leftJoin(playerTitleGrants, eq(playerTitleGrants.historicalTitleGrantId, historicalTitleGrants.id))
+        .where(and(eq(historicalTitleGrants.holderName, input.holderName), isNull(playerTitleGrants.id)));
+      const timestamp = now();
+      const grants = historical.map(({ id }) => ({ id: crypto.randomUUID(), historicalTitleGrantId: id }));
+      const response = { contractVersion: "1" as const, grantedCount: grants.length };
+      const statements = [
+        ...grants.map((grant) => db.insert(playerTitleGrants).values({ id: grant.id, playerAccountId: player.id, historicalTitleGrantId: grant.historicalTitleGrantId, status: "active", grantedBy: auth.subject, grantedAt: timestamp })),
+        ...grants.map((grant) => db.insert(auditEvents).values({ id: crypto.randomUUID(), correlationId: crypto.randomUUID(), actorType: auth.actorType, actorId: auth.subject, operation: "admin.title.grant.bulk", entityType: "player_title_grant", entityId: grant.id, payloadJson: JSON.stringify({ playerAccountId: player.id, historicalTitleGrantId: grant.historicalTitleGrantId, holderName: input.holderName }), createdAt: timestamp })),
+        db.insert(idempotencyKeys).values({ id: `${auth.subject}:admin.title.grant.bulk:${idempotencyKey}`, actorId: auth.subject, operation: "admin.title.grant.bulk", requestHash: await hashRequest(input), responseJson: JSON.stringify(response), createdAt: timestamp }),
+      ];
+      await db.batch(statements as [typeof statements[number], ...typeof statements]);
+      return response;
     },
 
     async revokeAdminTitleGrant(input, auth, idempotencyKey) {

@@ -28,10 +28,10 @@ The current API implements versioned v1 QQ flows:
 - the platform stores a versioned Bastion title catalog, all released maps,
   map-only `PIONEER`/`CONQUEROR`/`DOMINATOR` reward slots, and historical title
   holder snapshots without linking source names to platform accounts;
-- maintainers can explicitly migrate a historical holder snapshot to a player
-  account as an auditable title grant, and can revoke that grant with a
-  recorded reason; historical holder names are never matched or claimed
-  automatically;
+- maintainers can explicitly migrate one historical holder snapshot or all of
+  its unclaimed title records to a player account as auditable title grants,
+  and can revoke an individual grant with a recorded reason; historical holder
+  names are never matched or claimed automatically;
 - a versioned Queue message invokes OCRKit, persists the raw result and match
   evidence, and moves matching submissions to `ready_for_review`;
 - the maintainer Portal can inspect private evidence and OCR output and record

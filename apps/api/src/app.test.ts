@@ -10,6 +10,7 @@ const services: PlatformServices = {
   listCurrentPlayerTitles: async ({ sessionToken }) => sessionToken === "session-token" ? [{ grantId: "00000000-0000-0000-0000-000000000006", titleKey: "PIONEER", label: "开拓者", category: "社区贡献系列", scope: "map", mapName: "萨摩亚", slot: "pioneer", grantedAt: 4 }] : null,
   listHistoricalTitleGrants: async () => [],
   createAdminTitleGrant: async () => {},
+  createAdminTitleGrantBulk: async () => ({ contractVersion: "1", grantedCount: 0 }),
   revokeAdminTitleGrant: async () => {},
   listAdminChallenges: async () => ({ contractVersion: "1", items: [] }),
   updateAdminChallenge: async () => { throw new Error("CHALLENGE_NOT_FOUND"); },
@@ -120,6 +121,37 @@ describe("API", () => {
     const body = JSON.stringify({ contractVersion: "1", playerAccountId: "11111111-1111-4111-8111-111111111111", historicalTitleGrantId: "22222222-2222-4222-8222-222222222222" });
     expect((await adminApp.request("http://localhost/v1/admin/title-grants", { method: "POST", headers: { "content-type": "application/json" }, body }, env)).status).toBe(422);
     expect((await adminApp.request("http://localhost/v1/admin/title-grants", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "title-grant-1" }, body }, env)).status).toBe(204);
+  });
+
+  it("bulk-links every unclaimed title held by one exact historical player name", async () => {
+    const requests: Array<{ holderName: string; playerAccountId: string; idempotencyKey: string }> = [];
+    const responses = new Map<string, { contractVersion: "1"; grantedCount: number }>();
+    const adminApp = createApp({
+      authenticate: async () => ({ actorType: "user", subject: "admin", roles: ["maintainer"], provider: "test" }),
+      services: () => ({ ...services, createAdminTitleGrantBulk: async (input, _auth, idempotencyKey) => {
+        const existing = responses.get(idempotencyKey);
+        if (existing) {
+          const request = requests.find((value) => value.idempotencyKey === idempotencyKey)!;
+          if (request.holderName !== input.holderName || request.playerAccountId !== input.playerAccountId) throw new Error("IDEMPOTENCY_CONFLICT");
+          return existing;
+        }
+        requests.push({ ...input, idempotencyKey });
+        const response = { contractVersion: "1" as const, grantedCount: input.holderName === "Cold" ? 42 : 0 };
+        responses.set(idempotencyKey, response);
+        return response;
+      } }),
+    });
+    const body = JSON.stringify({ contractVersion: "1", holderName: "Cold", playerAccountId: "11111111-1111-4111-8111-111111111111" });
+    expect((await adminApp.request("http://localhost/v1/admin/title-grants/bulk", { method: "POST", headers: { "content-type": "application/json" }, body }, env)).status).toBe(422);
+    expect((await app.request("http://localhost/v1/admin/title-grants/bulk", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "bulk-1" }, body }, env)).status).toBe(403);
+    const first = await adminApp.request("http://localhost/v1/admin/title-grants/bulk", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "bulk-1" }, body }, env);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ contractVersion: "1", grantedCount: 42 });
+    const replay = await adminApp.request("http://localhost/v1/admin/title-grants/bulk", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "bulk-1" }, body }, env);
+    expect(await replay.json()).toEqual({ contractVersion: "1", grantedCount: 42 });
+    const conflict = await adminApp.request("http://localhost/v1/admin/title-grants/bulk", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "bulk-1" }, body: JSON.stringify({ contractVersion: "1", holderName: "Boo", playerAccountId: "11111111-1111-4111-8111-111111111111" }) }, env);
+    expect(conflict.status).toBe(409);
+    expect(requests).toEqual([{ contractVersion: "1", holderName: "Cold", playerAccountId: "11111111-1111-4111-8111-111111111111", idempotencyKey: "bulk-1" }]);
   });
 
   it("limits achievement management to maintainers and validates lifecycle updates", async () => {

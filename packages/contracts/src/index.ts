@@ -147,6 +147,8 @@ export const ownedTitleListResponseSchema = z.object({ contractVersion, items: z
 export const historicalTitleGrantSchema = ownedTitleSchema.extend({ holderName: z.string(), playerAccountId: z.string().uuid().optional(), playerName: z.string().optional(), playerId: playerId.optional(), status: z.enum(["unclaimed", "active", "revoked"]), revokeReason: z.string().optional() });
 export const historicalTitleGrantListResponseSchema = z.object({ contractVersion, items: z.array(historicalTitleGrantSchema) });
 export const adminTitleGrantRequestSchema = z.object({ contractVersion, playerAccountId: z.string().uuid(), historicalTitleGrantId: z.string().uuid() });
+export const adminTitleGrantBulkRequestSchema = z.object({ contractVersion, playerAccountId: z.string().uuid(), holderName: z.string().trim().min(1).max(256) });
+export const adminTitleGrantBulkResponseSchema = z.object({ contractVersion, grantedCount: z.number().int().nonnegative() });
 export const adminTitleGrantRevokeRequestSchema = z.object({ contractVersion, reason: z.string().trim().min(1).max(256) });
 
 const adminMapChallengeSchema = mapChallengeSchema.extend({
@@ -318,6 +320,8 @@ export type OwnedTitleListResponse = z.infer<typeof ownedTitleListResponseSchema
 export type HistoricalTitleGrant = z.infer<typeof historicalTitleGrantSchema>;
 export type HistoricalTitleGrantListResponse = z.infer<typeof historicalTitleGrantListResponseSchema>;
 export type AdminTitleGrantRequest = z.infer<typeof adminTitleGrantRequestSchema>;
+export type AdminTitleGrantBulkRequest = z.infer<typeof adminTitleGrantBulkRequestSchema>;
+export type AdminTitleGrantBulkResponse = z.infer<typeof adminTitleGrantBulkResponseSchema>;
 export type AdminTitleGrantRevokeRequest = z.infer<typeof adminTitleGrantRevokeRequestSchema>;
 export type AdminChallenge = z.infer<typeof adminChallengeSchema>;
 export type AdminChallengeListResponse = z.infer<typeof adminChallengeListResponseSchema>;

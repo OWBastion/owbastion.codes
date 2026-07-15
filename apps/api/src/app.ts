@@ -8,6 +8,7 @@ import {
   adminPlayerStatusRequestSchema,
   adminSubmissionReviewRequestSchema,
   adminTitleGrantRequestSchema,
+  adminTitleGrantBulkRequestSchema,
   adminTitleGrantRevokeRequestSchema,
   adminChallengeUpdateRequestSchema,
   playerUploadSessionRequestSchema,
@@ -330,6 +331,17 @@ export const createApp = (dependencies: AppDependencies) => {
     if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
     try { await dependencies.services(c.env).createAdminTitleGrant(parsed.data, access.auth!, idempotencyKey); return c.body(null, 204); }
     catch (error) { const code = error instanceof Error ? error.message : "TITLE_GRANT_FAILED"; if (["HISTORICAL_TITLE_GRANT_NOT_FOUND", "PLAYER_NOT_FOUND"].includes(code)) return errorResponse(c, 404, code, "The requested record does not exist"); if (code === "HISTORICAL_TITLE_GRANT_CLAIMED") return errorResponse(c, 409, code, "The historical title is already linked"); if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request"); throw error; }
+  });
+
+  app.post("/v1/admin/title-grants/bulk", async (c) => {
+    const access = await requireMaintainer(c);
+    if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key");
+    if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    const parsed = adminTitleGrantBulkRequestSchema.safeParse(await parseBody(c.req.raw));
+    if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    try { return c.json(await dependencies.services(c.env).createAdminTitleGrantBulk(parsed.data, access.auth!, idempotencyKey)); }
+    catch (error) { const code = error instanceof Error ? error.message : "TITLE_GRANT_BULK_FAILED"; if (code === "PLAYER_NOT_FOUND") return errorResponse(c, 404, code, "The requested player does not exist"); if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request"); throw error; }
   });
 
   app.post("/v1/admin/title-grants/:grantId/revoke", async (c) => {
