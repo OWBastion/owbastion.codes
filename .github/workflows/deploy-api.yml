@@ -112,12 +112,24 @@ jobs:
           fi
           admin_player_name_normalized="${admin_player_name,,}"
           admin_player_name_normalized_sql="${admin_player_name_normalized//\'/\'\'}"
+          echo "::add-mask::$admin_player_id"
+          echo "::add-mask::$admin_player_name_normalized_sql"
           {
             echo "ADMIN_PLAYER_ID=$admin_player_id"
             echo "ADMIN_PLAYER_NAME_NORMALIZED_SQL=$admin_player_name_normalized_sql"
           } >> "$GITHUB_ENV"
           test "$(grep -c 'database_id = "00000000-0000-0000-0000-000000000000"' wrangler.toml)" -eq 0
           test "$(grep -c 'database_name = "owbastion-codes-prod"' wrangler.toml)" -eq 1
+
+      - name: Ensure OCR queue exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if pnpm exec wrangler queues list --json | jq -e 'any(.[]; .queue_name == "owbastion-ocr")' >/dev/null; then
+            echo "OCR queue already exists"
+          else
+            pnpm exec wrangler queues create owbastion-ocr
+          fi
 
       - name: Apply remote D1 migrations
         run: pnpm exec wrangler d1 migrations apply owbastion-codes-prod --remote
