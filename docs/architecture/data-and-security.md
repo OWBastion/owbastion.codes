@@ -4,7 +4,7 @@
 
 | Store | Current responsibility |
 | --- | --- |
-| D1 | QQ bindings, player accounts, submissions, upload sessions, attachment metadata, OCR results, review records, idempotency records, audit events, login attempts, sessions, title catalog, map title rewards, and historical title snapshots |
+| D1 | QQ bindings, player accounts, submissions, upload sessions, attachment metadata, OCR results, review records, idempotency records, audit events, login attempts, sessions, title catalog, map title rewards, historical title snapshots, and auditable player title grants |
 | R2 | Private submission evidence when the EVIDENCE_BUCKET binding is configured |
 | Bastion Git and snapshots | Released game content and version history; the platform stores an imported immutable catalog snapshot |
 
@@ -38,10 +38,19 @@ the platform verifies a code from an enabled group with an existing group-scoped
 binding.
 
 GET /v1/me returns only the authenticated player's name, numeric player ID,
-binding status, and up to five recent player-facing submissions. QQ identities,
-evidence objects, source URLs, and audit payloads do not cross the API boundary.
-The protected administrator surface may read QQ group/member identifiers to
-operate bindings; these fields are never returned by public or player APIs.
+binding status, and up to five recent player-facing submissions. The separate
+authenticated player-title response returns only the caller's active grants and
+the public title and map-scope data needed to display them; it never returns
+historical holder names, QQ identities, or audit data. QQ identities, evidence
+objects, source URLs, and audit payloads do not cross the API boundary. The
+protected administrator surface may read QQ group/member identifiers to operate
+bindings; these fields are never returned by public or player APIs.
+
+Historical title holder names are immutable source snapshots, not identity
+proof. A player may display a historical title only after a maintainer creates
+an active `player_title_grants` record for that account. Grant creation and
+revocation are idempotent and auditable; revocation preserves the record and
+removes the title from the player-facing result.
 
 ## Public-repository policy
 

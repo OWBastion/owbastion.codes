@@ -83,7 +83,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
 
 <template>
   <main class="admin-page page-shell">
-    <section class="admin-intro"><p class="eyebrow">运营控制台</p><h1 class="page-title">管理后台</h1><p class="body-copy">管理玩家身份与 QQ 群访问。写操作记录在审计日志中。</p></section>
+    <section class="admin-intro"><p class="eyebrow">运营控制台</p><h1 class="page-title">管理后台</h1><p class="body-copy">管理玩家身份与 QQ 群访问。写操作记录在审计日志中。</p><NuxtLink class="secondary-button" to="/admin/titles">称号迁移</NuxtLink></section>
     <p v-if="errorMessage" class="admin-alert" role="alert">{{ errorMessage }}</p>
     <p v-if="actionMessage" class="admin-feedback" role="status">{{ actionMessage }}</p>
     <section class="admin-grid">

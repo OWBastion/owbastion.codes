@@ -139,6 +139,16 @@ export const titleSchema = z.object({
 
 export const titleListResponseSchema = z.object({ contractVersion, items: z.array(titleSchema) });
 
+export const ownedTitleSchema = z.object({
+  grantId: z.string().uuid(), titleKey: externalId, label: z.string(), category: z.string(),
+  scope: z.enum(["global", "map"]), mapName: z.string().optional(), slot: z.enum(["pioneer", "conqueror", "dominator"]).optional(), grantedAt: z.number().int(),
+});
+export const ownedTitleListResponseSchema = z.object({ contractVersion, items: z.array(ownedTitleSchema) });
+export const historicalTitleGrantSchema = ownedTitleSchema.extend({ holderName: z.string(), playerAccountId: z.string().uuid().optional(), playerName: z.string().optional(), playerId: playerId.optional(), status: z.enum(["unclaimed", "active", "revoked"]), revokeReason: z.string().optional() });
+export const historicalTitleGrantListResponseSchema = z.object({ contractVersion, items: z.array(historicalTitleGrantSchema) });
+export const adminTitleGrantRequestSchema = z.object({ contractVersion, playerAccountId: z.string().uuid(), historicalTitleGrantId: z.string().uuid() });
+export const adminTitleGrantRevokeRequestSchema = z.object({ contractVersion, reason: z.string().trim().min(1).max(256) });
+
 export const playerUploadSessionRequestSchema = z.object({
   contractVersion,
   challengeId: externalId,
@@ -265,6 +275,12 @@ export type Map = z.infer<typeof mapSchema>;
 export type MapListResponse = z.infer<typeof mapListResponseSchema>;
 export type Title = z.infer<typeof titleSchema>;
 export type TitleListResponse = z.infer<typeof titleListResponseSchema>;
+export type OwnedTitle = z.infer<typeof ownedTitleSchema>;
+export type OwnedTitleListResponse = z.infer<typeof ownedTitleListResponseSchema>;
+export type HistoricalTitleGrant = z.infer<typeof historicalTitleGrantSchema>;
+export type HistoricalTitleGrantListResponse = z.infer<typeof historicalTitleGrantListResponseSchema>;
+export type AdminTitleGrantRequest = z.infer<typeof adminTitleGrantRequestSchema>;
+export type AdminTitleGrantRevokeRequest = z.infer<typeof adminTitleGrantRevokeRequestSchema>;
 export type PlayerUploadSessionRequest = z.infer<typeof playerUploadSessionRequestSchema>;
 export type PlayerUploadSessionResponse = z.infer<typeof playerUploadSessionResponseSchema>;
 export type PlayerUploadCompleteRequest = z.infer<typeof playerUploadCompleteRequestSchema>;

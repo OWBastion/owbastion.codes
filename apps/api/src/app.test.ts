@@ -7,6 +7,10 @@ const services: PlatformServices = {
   listMaps: async () => [],
   listChallenges: async () => [],
   listTitles: async () => [],
+  listCurrentPlayerTitles: async ({ sessionToken }) => sessionToken === "session-token" ? [{ grantId: "00000000-0000-0000-0000-000000000006", titleKey: "PIONEER", label: "开拓者", category: "社区贡献系列", scope: "map", mapName: "萨摩亚", slot: "pioneer", grantedAt: 4 }] : null,
+  listHistoricalTitleGrants: async () => [],
+  createAdminTitleGrant: async () => {},
+  revokeAdminTitleGrant: async () => {},
   createPlayerUploadSession: async () => ({ contractVersion: "1", submissionId: "00000000-0000-0000-0000-000000000003", uploadId: "00000000-0000-0000-0000-000000000004", uploadUrl: "http://localhost/upload", expiresAt: 1, maxBytes: 10 }),
   uploadEvidence: async () => {},
   completePlayerUpload: async () => ({ submissionId: "00000000-0000-0000-0000-000000000003", status: "ocr_pending" }),
@@ -101,6 +105,21 @@ describe("API", () => {
     });
   });
 
+  it("returns only the signed-in player's active title grants", async () => {
+    expect((await app.request("http://localhost/v1/me/titles", {}, env)).status).toBe(401);
+    const response = await app.request("http://localhost/v1/me/titles", { headers: { cookie: "owb_session=session-token" } }, env);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ contractVersion: "1", items: [{ titleKey: "PIONEER", mapName: "萨摩亚" }] });
+  });
+
+  it("limits historical title migration to maintainers and requires idempotency", async () => {
+    const createAdminTitleGrant = async () => {};
+    const adminApp = createApp({ authenticate: async () => ({ actorType: "user", subject: "admin", roles: ["maintainer"], provider: "test" }), services: () => ({ ...services, createAdminTitleGrant }) });
+    const body = JSON.stringify({ contractVersion: "1", playerAccountId: "11111111-1111-4111-8111-111111111111", historicalTitleGrantId: "22222222-2222-4222-8222-222222222222" });
+    expect((await adminApp.request("http://localhost/v1/admin/title-grants", { method: "POST", headers: { "content-type": "application/json" }, body }, env)).status).toBe(422);
+    expect((await adminApp.request("http://localhost/v1/admin/title-grants", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "title-grant-1" }, body }, env)).status).toBe(204);
+  });
+
   it("protects the player submission catalog", async () => {
     const requestedFamilies: Array<string | undefined> = [];
     const catalogServices: PlatformServices = {
@@ -140,6 +159,19 @@ describe("API", () => {
     expect(requestedFamilies).toEqual([undefined, "map", "achievement"]);
     expect(await titles.json()).toMatchObject({ contractVersion: "1", items: [{ titleKey: "ALL_IN_ONE", scope: "global" }] });
     expect(await mapTitles.json()).toMatchObject({ contractVersion: "1", items: [{ titleKey: "PIONEER", scope: "map", mapId: "map.samoa", pioneerPrefixes: ["萨摩亚"] }] });
+  });
+
+  it("serves the public achievement catalog without a player session", async () => {
+    const publicApp = createApp({
+      authenticate: async () => null,
+      services: () => ({
+        ...services,
+        listChallenges: async (input) => input?.family === "achievement" ? [{ challengeId: "title.flawless", family: "achievement", type: "title_achievement", kind: "title_achievement", titleKey: "FLAWLESS", titleName: "完美无缺", category: "极限操作系列", condition: "单局跳过英雄次数为 0 且通关。", evidenceRule: "完整截图", gameVersion: "2026.07.15", status: "active", submissionMode: "manual" }] : [],
+      }),
+    });
+    const response = await publicApp.request("http://localhost/v1/public/achievements", {}, env);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ contractVersion: "1", items: [{ challengeId: "title.flawless", family: "achievement", submissionMode: "manual" }] });
   });
 
   it("rejects screenshot uploads for automatically granted titles", async () => {

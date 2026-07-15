@@ -21,6 +21,7 @@ import type {
   Challenge,
   Map,
   Title,
+  OwnedTitle, HistoricalTitleGrant, AdminTitleGrantRequest,
   PlayerUploadSessionRequest,
   PlayerUploadSessionResponse,
 } from "@owbastion/contracts";
@@ -43,6 +44,10 @@ export type PlatformServices = {
   listMaps(): Promise<Map[]>;
   listChallenges(input?: { family?: "map" | "achievement" }): Promise<Challenge[]>;
   listTitles(input: { mapId?: string }): Promise<Title[]>;
+  listCurrentPlayerTitles(input: { sessionToken: string }): Promise<OwnedTitle[] | null>;
+  listHistoricalTitleGrants(input: { query?: string }, auth: AuthContext): Promise<HistoricalTitleGrant[]>;
+  createAdminTitleGrant(input: AdminTitleGrantRequest, auth: AuthContext, idempotencyKey: string): Promise<void>;
+  revokeAdminTitleGrant(input: { grantId: string; reason: string }, auth: AuthContext, idempotencyKey: string): Promise<void>;
   createPlayerUploadSession(input: PlayerUploadSessionRequest, sessionToken: string): Promise<PlayerUploadSessionResponse>;
   completePlayerUpload(input: { uploadId: string }, sessionToken: string): Promise<{ submissionId: string; status: string }>;
   uploadEvidence(input: { uploadId: string; body: ArrayBuffer; contentType: string }, sessionToken: string): Promise<void>;

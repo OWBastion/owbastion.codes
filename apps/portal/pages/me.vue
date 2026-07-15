@@ -5,12 +5,13 @@ definePageMeta({ middleware: "auth" });
 useSeoMeta({ title: "玩家中心 · 躲避堡垒 3" });
 
 const { player, refresh } = useCurrentPlayer();
+const { items: titles, refresh: refreshTitles } = usePlayerTitles();
 const loading = ref(true);
 
 const formatTime = (timestamp: number) => new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
 
 onMounted(async () => {
-  await refresh();
+  await Promise.all([refresh(), refreshTitles()]);
   loading.value = false;
 });
 </script>
@@ -31,6 +32,12 @@ onMounted(async () => {
         <div class="identity-status"><p class="field-label">QQ 绑定</p><StatusBadge label="已绑定" tone="success" /></div>
       </section>
 
+      <section class="section-block titles-section" aria-labelledby="titles-title">
+        <div class="section-heading"><div><p class="eyebrow">个人收藏</p><h2 id="titles-title">已有称号</h2></div></div>
+        <div v-if="titles.length" class="title-grid"><article v-for="title in titles" :key="title.grantId" class="title-card surface-card"><p>{{ title.category }}</p><h3>{{ title.label }}</h3><span>{{ title.scope === "map" ? title.mapName : "通用称号" }}</span></article></div>
+        <EmptyState v-else title="暂无称号" />
+      </section>
+
       <section class="section-block" aria-labelledby="submissions-title">
         <div class="section-heading submission-heading"><div><p class="eyebrow">提交记录</p><h2 id="submissions-title">最近提交</h2></div><NuxtLink to="/submissions/new" class="secondary-button submission-action"><AppIcon name="upload" /><span>提交截图</span></NuxtLink></div>
         <div v-if="player.recentSubmissions.length" class="submission-list">
@@ -47,14 +54,10 @@ onMounted(async () => {
         <div class="upcoming-grid">
           <article class="upcoming-card surface-card">
             <div class="upcoming-card-top"><span class="upcoming-index">01</span><span class="coming-soon-label">未开放</span></div>
-            <div><p class="upcoming-kicker">个人收藏</p><h3>成就与称号</h3></div>
-          </article>
-          <article class="upcoming-card surface-card">
-            <div class="upcoming-card-top"><span class="upcoming-index">02</span><span class="coming-soon-label">未开放</span></div>
             <div><p class="upcoming-kicker">限时目标</p><h3>轮换挑战</h3></div>
           </article>
           <article class="upcoming-card surface-card">
-            <div class="upcoming-card-top"><span class="upcoming-index">03</span><span class="coming-soon-label">未开放</span></div>
+            <div class="upcoming-card-top"><span class="upcoming-index">02</span><span class="coming-soon-label">未开放</span></div>
             <div><p class="upcoming-kicker">地图记录</p><h3>地图挑战进度</h3></div>
           </article>
         </div>
@@ -87,6 +90,7 @@ onMounted(async () => {
 .section-heading h2 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.35rem); letter-spacing: -.045em; }
 .section-heading > span { color: var(--quiet); font-size: .78rem; }
 .submission-list { display: grid; gap: 10px; }
+.titles-section { margin-top: clamp(52px, 8vw, 86px); }.title-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }.title-card { min-height: 150px; padding: 20px; background: color-mix(in oklch, var(--surface-raised) 82%, var(--surface)); }.title-card p, .title-card span { margin: 0; color: var(--quiet); font-size: .74rem; }.title-card h3 { margin: 22px 0 8px; font-size: clamp(1.2rem, 2.3vw, 1.52rem); letter-spacing: -.035em; overflow-wrap: anywhere; }
 .submission-row { display: flex; align-items: center; justify-content: space-between; gap: 22px; min-width: 0; padding: 18px 20px; color: inherit; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease; }.submission-row > div { min-width: 0; }.submission-row strong { overflow-wrap: anywhere; }
 .submission-row:hover { transform: translateY(-1px); border-color: var(--line-strong); }
 .submission-row strong { display: block; letter-spacing: -.02em; }
@@ -102,7 +106,7 @@ onMounted(async () => {
 .upcoming-card h3 { margin: 0; color: color-mix(in oklch, var(--text) 84%, var(--muted)); font-size: clamp(1.22rem, 2.3vw, 1.55rem); letter-spacing: -.035em; }
 .upcoming-card p:last-child { margin: 12px 0 0; color: var(--quiet); font-size: .82rem; line-height: 1.6; }
 .loading { padding-block: 180px; color: var(--muted); text-align: center; }
-@media (max-width: 760px) { .upcoming-grid { grid-template-columns: 1fr; }.upcoming-card { min-height: 220px; }.upcoming-heading { align-items: flex-start; flex-direction: column; }.upcoming-heading > p { text-align: left; } }
+@media (max-width: 760px) { .upcoming-grid, .title-grid { grid-template-columns: 1fr; }.upcoming-card { min-height: 220px; }.upcoming-heading { align-items: flex-start; flex-direction: column; }.upcoming-heading > p { text-align: left; } }
 @media (prefers-reduced-transparency: reduce) { .identity-card { background: var(--surface-raised); backdrop-filter: none; } }
 @media (max-width: 620px) { .identity-card { align-items: flex-start; flex-direction: column; gap: 18px; padding: 20px; }.identity-status { width: 100%; padding-top: 17px; border-top: 1px solid var(--line); }.submission-row { align-items: flex-start; flex-direction: column; gap: 12px; padding: 16px; } }
 @media (max-width: 620px) { .submission-heading { align-items: flex-start; flex-direction: column; gap: 16px; }.submission-action { align-self: flex-start; } }

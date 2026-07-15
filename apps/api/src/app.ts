@@ -7,6 +7,8 @@ import {
   qqGroupAccessRequestSchema,
   adminPlayerStatusRequestSchema,
   adminSubmissionReviewRequestSchema,
+  adminTitleGrantRequestSchema,
+  adminTitleGrantRevokeRequestSchema,
   playerUploadSessionRequestSchema,
 } from "@owbastion/contracts";
 import type { Authenticator, PlatformServices } from "@owbastion/domain";
@@ -67,6 +69,8 @@ export const createApp = (dependencies: AppDependencies) => {
   app.options("/v1/auth/qq/login-attempt/:attemptId", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/auth/logout", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/me/titles", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/public/achievements", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/__local/accounts", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/__local/login", (c) => { allowPortal(c); return c.body(null, 204); });
 
@@ -163,12 +167,26 @@ export const createApp = (dependencies: AppDependencies) => {
     return c.json(player);
   });
 
+  app.get("/v1/me/titles", async (c) => {
+    allowPortal(c);
+    const sessionToken = portalSessionToken(c.req.raw);
+    if (!sessionToken) return errorResponse(c, 401, "UNAUTHENTICATED", "Authentication is required");
+    const items = await dependencies.services(c.env).listCurrentPlayerTitles({ sessionToken });
+    if (!items) return errorResponse(c, 401, "UNAUTHENTICATED", "Authentication is required");
+    return c.json({ contractVersion: "1", items });
+  });
+
   app.post("/v1/auth/logout", async (c) => {
     allowPortal(c);
     const sessionToken = portalSessionToken(c.req.raw);
     if (sessionToken) await dependencies.services(c.env).logoutPortalSession({ sessionToken });
     c.header("Set-Cookie", sessionCookie(c.req.raw, "", 0));
     return c.body(null, 204);
+  });
+
+  app.get("/v1/public/achievements", async (c) => {
+    allowPortal(c);
+    return c.json({ contractVersion: "1", items: await dependencies.services(c.env).listChallenges({ family: "achievement" }) });
   });
 
   app.get("/v1/challenges", async (c) => {
@@ -271,6 +289,34 @@ export const createApp = (dependencies: AppDependencies) => {
     if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
     try { await dependencies.services(c.env).removeAdminBinding({ bindingId: c.req.param("bindingId") }, access.auth!, idempotencyKey); return c.body(null, 204); }
     catch (error) { if (error instanceof Error && error.message === "BINDING_NOT_FOUND") return errorResponse(c, 404, "BINDING_NOT_FOUND", "The binding does not exist"); if (error instanceof Error && error.message === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, "IDEMPOTENCY_CONFLICT", "The idempotency key was used with a different request"); throw error; }
+  });
+
+  app.get("/v1/admin/title-grants", async (c) => {
+    const access = await requireMaintainer(c);
+    if (access.error) return access.error;
+    return c.json({ contractVersion: "1", items: await dependencies.services(c.env).listHistoricalTitleGrants({ query: c.req.query("query")?.trim() || undefined }, access.auth!) });
+  });
+
+  app.post("/v1/admin/title-grants", async (c) => {
+    const access = await requireMaintainer(c);
+    if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key");
+    if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    const parsed = adminTitleGrantRequestSchema.safeParse(await parseBody(c.req.raw));
+    if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    try { await dependencies.services(c.env).createAdminTitleGrant(parsed.data, access.auth!, idempotencyKey); return c.body(null, 204); }
+    catch (error) { const code = error instanceof Error ? error.message : "TITLE_GRANT_FAILED"; if (["HISTORICAL_TITLE_GRANT_NOT_FOUND", "PLAYER_NOT_FOUND"].includes(code)) return errorResponse(c, 404, code, "The requested record does not exist"); if (code === "HISTORICAL_TITLE_GRANT_CLAIMED") return errorResponse(c, 409, code, "The historical title is already linked"); if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request"); throw error; }
+  });
+
+  app.post("/v1/admin/title-grants/:grantId/revoke", async (c) => {
+    const access = await requireMaintainer(c);
+    if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key");
+    if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    const parsed = adminTitleGrantRevokeRequestSchema.safeParse(await parseBody(c.req.raw));
+    if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    try { await dependencies.services(c.env).revokeAdminTitleGrant({ grantId: c.req.param("grantId"), reason: parsed.data.reason }, access.auth!, idempotencyKey); return c.body(null, 204); }
+    catch (error) { const code = error instanceof Error ? error.message : "TITLE_GRANT_REVOKE_FAILED"; if (code === "TITLE_GRANT_NOT_FOUND") return errorResponse(c, 404, code, "The title grant does not exist"); if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request"); throw error; }
   });
 
   app.get("/v1/admin/submissions", async (c) => {

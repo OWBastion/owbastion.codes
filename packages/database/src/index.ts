@@ -2,7 +2,7 @@ import { desc, eq, and, gt, like, or, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { AuthContext, PlatformServices } from "@owbastion/domain";
 import type { Challenge, Map, QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, SubmissionRequest, Title } from "@owbastion/contracts";
-import { achievementChallenges, attachments, auditEvents, bindings, identities, idempotencyKeys, mapTitleRewards, maps, ocrResults, playerAccounts, qqGroupAccess, qqLoginAttempts, qqSessions, submissionReviews, submissions, titleCatalog, titleChallenges, uploadSessions } from "./schema";
+import { achievementChallenges, attachments, auditEvents, bindings, historicalTitleGrants, identities, idempotencyKeys, mapTitleRewards, maps, ocrResults, playerAccounts, playerTitleGrants, qqGroupAccess, qqLoginAttempts, qqSessions, submissionReviews, submissions, titleCatalog, titleChallenges, uploadSessions } from "./schema";
 
 const now = () => Date.now();
 const loginTtlMs = 2 * 60 * 1000;
@@ -174,6 +174,45 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         pioneerPrefixes: JSON.parse(reward.pioneerPrefixesJson) as string[],
         gameVersion: title.gameVersion,
       })));
+    },
+
+    async listCurrentPlayerTitles(input) {
+      const session = await db.select().from(qqSessions).where(and(eq(qqSessions.tokenHash, await hashRequest(input.sessionToken)), gt(qqSessions.expiresAt, now()))).get();
+      if (!session) return null;
+      const binding = await db.select().from(bindings).where(and(eq(bindings.groupOpenId, session.groupOpenId), eq(bindings.memberOpenId, session.memberOpenId))).get();
+      if (!binding) return null;
+      const rows = await db.select({ grant: playerTitleGrants, historical: historicalTitleGrants, title: titleCatalog, mapName: maps.name }).from(playerTitleGrants)
+        .innerJoin(historicalTitleGrants, eq(playerTitleGrants.historicalTitleGrantId, historicalTitleGrants.id)).innerJoin(titleCatalog, eq(historicalTitleGrants.titleKey, titleCatalog.key)).leftJoin(maps, eq(historicalTitleGrants.mapId, maps.id))
+        .where(and(eq(playerTitleGrants.playerAccountId, binding.playerAccountId), eq(playerTitleGrants.status, "active"))).orderBy(desc(playerTitleGrants.grantedAt));
+      return rows.map(({ grant, historical, title, mapName }) => ({ grantId: grant.id, titleKey: title.key, label: title.label, category: title.category, scope: historical.scope as "global" | "map", mapName: mapName ?? undefined, slot: historical.slot as "pioneer" | "conqueror" | "dominator" | undefined, grantedAt: grant.grantedAt }));
+    },
+
+    async listHistoricalTitleGrants(input) {
+      const query = input.query ? `%${input.query}%` : undefined;
+      const rows = await db.select({ historical: historicalTitleGrants, grant: playerTitleGrants, title: titleCatalog, mapName: maps.name, player: playerAccounts }).from(historicalTitleGrants)
+        .innerJoin(titleCatalog, eq(historicalTitleGrants.titleKey, titleCatalog.key)).leftJoin(maps, eq(historicalTitleGrants.mapId, maps.id)).leftJoin(playerTitleGrants, eq(playerTitleGrants.historicalTitleGrantId, historicalTitleGrants.id)).leftJoin(playerAccounts, eq(playerTitleGrants.playerAccountId, playerAccounts.id))
+        .where(query ? or(like(historicalTitleGrants.holderName, query), like(titleCatalog.label, query)) : undefined).orderBy(historicalTitleGrants.holderName).limit(100);
+      return rows.map(({ historical, grant, title, mapName, player }) => ({ grantId: grant?.id ?? historical.id, titleKey: title.key, label: title.label, category: title.category, scope: historical.scope as "global" | "map", mapName: mapName ?? undefined, slot: historical.slot as "pioneer" | "conqueror" | "dominator" | undefined, grantedAt: grant?.grantedAt ?? 0, holderName: historical.holderName, playerAccountId: grant?.playerAccountId, playerName: player?.playerName, playerId: player?.playerId, status: grant ? grant.status as "active" | "revoked" : "unclaimed", revokeReason: grant?.revokeReason ?? undefined }));
+    },
+
+    async createAdminTitleGrant(input, auth, idempotencyKey) {
+      const replay = await replayOrConflict<Record<string, never>>(db, auth.subject, "admin.title.grant", idempotencyKey, input); if (replay) return;
+      const historical = await db.select().from(historicalTitleGrants).where(eq(historicalTitleGrants.id, input.historicalTitleGrantId)).get();
+      const player = await db.select().from(playerAccounts).where(eq(playerAccounts.id, input.playerAccountId)).get();
+      if (!historical) throw new Error("HISTORICAL_TITLE_GRANT_NOT_FOUND"); if (!player) throw new Error("PLAYER_NOT_FOUND");
+      const existing = await db.select().from(playerTitleGrants).where(eq(playerTitleGrants.historicalTitleGrantId, historical.id)).get(); if (existing?.status === "active") throw new Error("HISTORICAL_TITLE_GRANT_CLAIMED");
+      const timestamp = now(); const id = crypto.randomUUID();
+      if (existing) await db.update(playerTitleGrants).set({ playerAccountId: player.id, status: "active", grantedBy: auth.subject, grantedAt: timestamp, revokedBy: null, revokedAt: null, revokeReason: null }).where(eq(playerTitleGrants.id, existing.id));
+      else await db.insert(playerTitleGrants).values({ id, playerAccountId: player.id, historicalTitleGrantId: historical.id, status: "active", grantedBy: auth.subject, grantedAt: timestamp });
+      const grantId = existing?.id ?? id;
+      await recordIdempotency(db, auth.subject, "admin.title.grant", idempotencyKey, input, {}); await recordAudit(db, auth, "admin.title.grant", "player_title_grant", grantId, { playerAccountId: player.id, historicalTitleGrantId: historical.id });
+    },
+
+    async revokeAdminTitleGrant(input, auth, idempotencyKey) {
+      const replay = await replayOrConflict<Record<string, never>>(db, auth.subject, "admin.title.revoke", idempotencyKey, input); if (replay) return;
+      const grant = await db.select().from(playerTitleGrants).where(eq(playerTitleGrants.id, input.grantId)).get(); if (!grant) throw new Error("TITLE_GRANT_NOT_FOUND");
+      await db.update(playerTitleGrants).set({ status: "revoked", revokedBy: auth.subject, revokedAt: now(), revokeReason: input.reason }).where(eq(playerTitleGrants.id, grant.id));
+      await recordIdempotency(db, auth.subject, "admin.title.revoke", idempotencyKey, input, {}); await recordAudit(db, auth, "admin.title.revoke", "player_title_grant", grant.id, { reason: input.reason });
     },
 
     async createPlayerUploadSession(input, sessionToken) {

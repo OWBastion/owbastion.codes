@@ -28,6 +28,10 @@ The current API implements versioned v1 QQ flows:
 - the platform stores a versioned Bastion title catalog, all released maps,
   map-only `PIONEER`/`CONQUEROR`/`DOMINATOR` reward slots, and historical title
   holder snapshots without linking source names to platform accounts;
+- maintainers can explicitly migrate a historical holder snapshot to a player
+  account as an auditable title grant, and can revoke that grant with a
+  recorded reason; historical holder names are never matched or claimed
+  automatically;
 - a versioned Queue message invokes OCRKit, persists the raw result and match
   evidence, and moves matching submissions to `ready_for_review`;
 - the maintainer Portal can inspect private evidence and OCR output and record
@@ -53,8 +57,9 @@ size, content type, and private object ownership are verified. OCR mismatches
 become `resubmission_required`; repeated OCR service failures become
 `ocr_review_required`.
 
-Approval records the human decision only. Grant processing, pull requests, and
-releases remain outside this slice.
+Approval records the human decision only. Player title migration records a
+maintainer-confirmed historical entitlement; it does not issue a new Bastion
+title. Pull requests and releases remain outside this slice.
 
 ## QQBot and login
 

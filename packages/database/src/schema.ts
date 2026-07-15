@@ -92,6 +92,18 @@ export const achievementChallenges = sqliteTable("achievement_challenges", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+export const playerTitleGrants = sqliteTable("player_title_grants", {
+  id: text("id").primaryKey(),
+  playerAccountId: text("player_account_id").notNull().references(() => playerAccounts.id),
+  historicalTitleGrantId: text("historical_title_grant_id").notNull().references(() => historicalTitleGrants.id),
+  status: text("status").notNull(),
+  grantedBy: text("granted_by").notNull(),
+  grantedAt: integer("granted_at").notNull(),
+  revokedBy: text("revoked_by"),
+  revokedAt: integer("revoked_at"),
+  revokeReason: text("revoke_reason"),
+});
+
 export const titleChallenges = sqliteTable("title_challenges", {
   id: text("id").primaryKey(),
   titleKey: text("title_key").notNull().references(() => titleCatalog.key),
