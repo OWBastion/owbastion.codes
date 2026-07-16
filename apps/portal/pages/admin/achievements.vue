@@ -65,6 +65,9 @@ const loading = ref(true);
 const savingId = ref<string | null>(null);
 const errorMessage = ref("");
 const actionMessage = ref("");
+const compactEditorButtonUi = {
+  base: (defaults: string) => defaults.replace("text-xs", "text-[11px]"),
+};
 const activeTab = ref("generic");
 const achievementTabs = [
   { label: "通用成就", value: "generic", slot: "generic" as const },
@@ -301,8 +304,8 @@ onMounted(() => void load());
               </form>
             </template>
             <template #footer>
-              <UButton label="取消" color="neutral" variant="outline" size="xs" :ui="{ base: 'min-h-7 px-2 py-1 !text-[11px] gap-1' }" :disabled="editingItem ? isSaving(editingItem) : false" @click="closeEditing" />
-              <UButton label="保存规则" size="xs" :ui="{ base: 'min-h-7 px-2 py-1 !text-[11px] gap-1' }" form="achievement-editor" :loading="editingItem ? isSaving(editingItem) : false" type="submit" />
+              <UButton class="min-h-7" label="取消" color="neutral" variant="outline" size="xs" :ui="compactEditorButtonUi" :disabled="editingItem ? isSaving(editingItem) : false" @click="closeEditing" />
+              <UButton class="min-h-7" label="保存规则" size="xs" :ui="compactEditorButtonUi" form="achievement-editor" :loading="editingItem ? isSaving(editingItem) : false" type="submit" />
             </template>
           </UModal>
         </section>
