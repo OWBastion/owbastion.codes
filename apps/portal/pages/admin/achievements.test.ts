@@ -4,13 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import AchievementAdminPage from "./achievements.vue";
 
 const title = { challengeId: "title-1", family: "achievement", type: "title_achievement", titleName: "守望先锋", category: "战绩", categoryOverride: null, condition: "完成挑战", evidenceRule: "完整截图", submissionMode: "manual", status: "active", gameVersion: "3.1.0", introducedVersion: "3.1.0", retiredVersion: null };
-const secondTitle = { ...title, challengeId: "title-2", titleName: "游戏先锋", category: "探索" };
+const secondTitle = { ...title, challengeId: "title-2", titleName: "游戏先锋" };
 const catalogTitle = { challengeId: "title.INTERNAL", family: "title_catalog", type: "title_catalog", titleKey: "INTERNAL", titleName: "内部称号", category: "开发保留", condition: "开发/管理用途。", availability: "active", scope: "global", displayKind: "fixed", status: "active", gameVersion: "3.1.0", hasChallenge: false };
 const map = { challengeId: "map-1", family: "map", type: "map_completion", name: "国王大道挑战", mapName: "国王大道", difficulty: "困难", status: "active", gameVersion: "3.0.0", introducedVersion: "3.0.0", retiredVersion: null };
+const secondMap = { ...map, challengeId: "map-2", name: "国王大道专家挑战" };
 const adminApi = vi.fn((path: string, options?: { method?: string; body?: Record<string, unknown> }) => {
-  if (path === "/v1/achievements") return Promise.resolve({ items: [title, secondTitle, catalogTitle, map] });
+  if (path === "/v1/achievements") return Promise.resolve({ items: [title, secondTitle, catalogTitle, map, secondMap] });
   if (path === "/v1/achievements?status=sunsetting") return Promise.resolve({ items: [{ ...title, status: "sunsetting", retiredVersion: "26.0713.1" }] });
-  if (["/v1/achievements/title-1", "/v1/achievements/title-2", "/v1/achievements/map-1"].includes(path) && options?.method === "PUT") return Promise.resolve();
+  if (["/v1/achievements/title-1", "/v1/achievements/title-2", "/v1/achievements/map-1", "/v1/achievements/map-2"].includes(path) && options?.method === "PUT") return Promise.resolve();
   if (path === "/v1/titles/INTERNAL" && options?.method === "PUT") return Promise.resolve();
   throw new Error(`Unexpected request: ${path}`);
 });
@@ -36,20 +37,25 @@ async function mountPage(): Promise<VueWrapper> {
 }
 
 describe("achievement admin page", () => {
-  it("renders generic and map achievements in grouped data tables without a side panel", async () => {
+  it("renders generic and map achievements in grouped data tables with merged group cells", async () => {
     const wrapper = await mountPage();
     expect(wrapper.text()).toContain("通用成就");
     expect(wrapper.text()).toContain("战绩");
-    expect(wrapper.text()).toContain("探索");
     expect(wrapper.text()).toContain("内部称号");
     expect(wrapper.text()).toContain("未开放");
     expect(wrapper.text()).toContain("地图挑战");
     expect(wrapper.text()).toContain("国王大道");
     expect(wrapper.find(".portal-side-panel").exists()).toBe(false);
     expect(wrapper.findAll('button[aria-label="编辑规则"]')).toHaveLength(2);
-    expect(wrapper.findAll('button[aria-label="计划下线"]')).toHaveLength(3);
-    expect(wrapper.findAll('button[aria-label="结束挑战"]')).toHaveLength(3);
+    expect(wrapper.findAll('button[aria-label="计划下线"]')).toHaveLength(4);
+    expect(wrapper.findAll('button[aria-label="结束挑战"]')).toHaveLength(4);
     expect(wrapper.findAll("button").some((button) => button.text() === "管理")).toBe(false);
+
+    const mergedCategories = wrapper.findAll('td[rowspan="2"]');
+    expect(mergedCategories).toHaveLength(2);
+    expect(mergedCategories.map((cell) => cell.text())).toEqual(expect.arrayContaining(["战绩", "国王大道"]));
+    expect(wrapper.findAll("td.hidden")).toHaveLength(2);
+    expect(wrapper.findAll('td[rowspan="1"]:not(.hidden)')).toHaveLength(1);
   });
 
   it("saves expanded title rules and clears the category override", async () => {
@@ -78,7 +84,7 @@ describe("achievement admin page", () => {
 
   it("ends an active map challenge directly without a release version", async () => {
     const wrapper = await mountPage();
-    const endButton = wrapper.findAll('button[aria-label="结束挑战"]').at(-1)!;
+    const endButton = wrapper.findAll('button[aria-label="结束挑战"]').at(-2)!;
     await endButton.trigger("click");
     await flushPromises();
     const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;

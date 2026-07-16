@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TableColumn } from "@nuxt/ui";
+
 definePageMeta({ middleware: ["auth", "admin-client"] });
 useSeoMeta({ title: "成就管理 · 躲避堡垒 3" });
 
@@ -46,6 +48,10 @@ type CatalogTitle = {
   hasChallenge: false;
 };
 type AdminAchievement = TitleAchievement | MapAchievement | CatalogTitle;
+type TableCell<Item> = {
+  row: { id: string; original: Item };
+  getContext(): { table: { getRowModel(): { rows: Array<{ id: string; original: Item }> } } };
+};
 
 const api = useAdminApi();
 const items = ref<AdminAchievement[]>([]);
@@ -75,15 +81,52 @@ const editingItem = computed(() => {
 });
 const achievementStatusText = (item: AdminAchievement) => isChallengeTitle(item) ? statusText(item.status) : item.status === "active" ? "未开放" : "已下线";
 const achievementStatusTone = (item: AdminAchievement) => isChallengeTitle(item) ? statusTone(item.status) : "warning";
-const titleColumns = [
-  { accessorKey: "category", header: "系列" },
+function isGroupContinuation<Item>(cell: TableCell<Item>, groupValue: (item: Item) => string) {
+  const rows = cell.getContext().table.getRowModel().rows;
+  const rowIndex = rows.findIndex((row) => row.id === cell.row.id);
+  return rowIndex > 0 && groupValue(rows[rowIndex - 1]!.original) === groupValue(cell.row.original);
+}
+
+function getGroupRowSpan<Item>(cell: TableCell<Item>, groupValue: (item: Item) => string) {
+  if (isGroupContinuation(cell, groupValue)) return "1";
+  const rows = cell.getContext().table.getRowModel().rows;
+  const rowIndex = rows.findIndex((row) => row.id === cell.row.id);
+  const value = groupValue(cell.row.original);
+  let span = 1;
+  for (let index = rowIndex + 1; index < rows.length; index++) {
+    if (groupValue(rows[index]!.original) !== value) break;
+    span++;
+  }
+  return `${span}`;
+}
+
+function getGroupCellClass<Item>(cell: TableCell<Item>, groupValue: (item: Item) => string) {
+  return isGroupContinuation(cell, groupValue) ? "hidden" : "align-middle";
+}
+
+const titleColumns: TableColumn<TitleAchievement | CatalogTitle>[] = [
+  {
+    accessorKey: "category",
+    header: "系列",
+    meta: {
+      rowspan: { td: (cell) => getGroupRowSpan(cell, (item) => item.category) },
+      class: { td: (cell) => getGroupCellClass(cell, (item) => item.category) },
+    },
+  },
   { accessorKey: "titleName", header: "称号" },
   { accessorKey: "condition", header: "完成条件" },
   { accessorKey: "status", header: "状态" },
   { id: "actions", header: "操作" },
 ];
-const mapColumns = [
-  { accessorKey: "mapName", header: "地图" },
+const mapColumns: TableColumn<MapAchievement>[] = [
+  {
+    accessorKey: "mapName",
+    header: "地图",
+    meta: {
+      rowspan: { td: (cell) => getGroupRowSpan(cell, (item) => item.mapName) },
+      class: { td: (cell) => getGroupCellClass(cell, (item) => item.mapName) },
+    },
+  },
   { accessorKey: "name", header: "挑战" },
   { accessorKey: "difficulty", header: "难度" },
   { accessorKey: "status", header: "状态" },
