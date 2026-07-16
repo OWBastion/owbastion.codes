@@ -55,7 +55,7 @@ watch(() => props.resetScrollKey, () => {
     <div class="admin-data-table__controls">
       <div v-if="$slots.filters" class="admin-data-table__filters"><slot name="filters" /></div>
       <UDropdownMenu :items="columnMenuItems" :content="{ align: 'end' }">
-        <UButton label="列" color="neutral" variant="outline" size="xs" trailing-icon="i-lucide-chevron-down" />
+        <UButton label="列" color="neutral" variant="outline" size="md" trailing-icon="i-lucide-chevron-down" />
       </UDropdownMenu>
     </div>
     <div ref="scrollContainer" class="admin-data-table__scroll" :class="{ 'admin-data-table__scroll--bounded': scrollHeight }" :style="scrollHeight ? { maxHeight: scrollHeight } : undefined">

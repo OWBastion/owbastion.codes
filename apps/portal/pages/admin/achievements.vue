@@ -287,7 +287,7 @@ onMounted(() => void load());
         <section class="catalog-section" aria-labelledby="title-achievements-title">
           <div class="section-heading"><div><p class="eyebrow">通用成就</p><h3 id="title-achievements-title">称号挑战</h3></div><span>{{ titleItems.length }} 项</span></div>
           <AdminDataTable v-model:column-filters="statusColumnFilters" :data="titleItems" :columns="titleColumns" :loading="loading" empty="暂无记录。" table-key="achievement-titles" class="admin-table achievement-table">
-            <template #filters><USelect v-model="status" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></template>
+            <template #filters><USelect v-model="status" size="md" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></template>
             <template #category-cell="{ row }"><span class="table-meta">{{ row.original.category }}</span></template>
             <template #titleName-cell="{ row }"><strong>{{ row.original.titleName }}</strong><small class="table-meta">{{ isChallengeTitle(row.original) ? `引入版本 ${row.original.introducedVersion}` : row.original.scope === 'map' ? '地图称号' : '目录称号' }}</small></template>
             <template #condition-cell="{ row }"><span class="condition-cell">{{ row.original.condition }}</span></template>
@@ -315,7 +315,7 @@ onMounted(() => void load());
         <section class="catalog-section" aria-labelledby="map-achievements-title">
           <div class="section-heading"><div><p class="eyebrow">地图挑战</p><h3 id="map-achievements-title">按地图管理</h3></div><span>{{ mapItems.length }} 项</span></div>
           <AdminDataTable v-model:column-filters="statusColumnFilters" :data="mapItems" :columns="mapColumns" :loading="loading" empty="暂无记录。" table-key="achievement-maps" class="admin-table achievement-table">
-            <template #filters><USelect v-model="status" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></template>
+            <template #filters><USelect v-model="status" size="md" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></template>
             <template #mapName-cell="{ row }"><span class="table-meta">{{ row.original.mapName }}</span></template>
             <template #name-cell="{ row }"><strong>{{ row.original.name }}</strong></template>
             <template #difficulty-cell="{ row }"><span>{{ row.original.difficulty ?? '地图通关' }}</span></template>
