@@ -8,3 +8,6 @@ allowBuilds:
   sharp: true
   vue-demi: true
   workerd: true
+
+minimumReleaseAgeExclude:
+  - '@nuxt/ui'
