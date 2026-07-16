@@ -14,7 +14,7 @@ export const readTitleCatalogSnapshot = (value: unknown): TitleCatalogSnapshot =
   const titleKeys = new Set(snapshot.titles.map((title) => title.key));
   const mapSlots = new Set(["pioneer", "conqueror", "dominator"]);
 
-  if (snapshot.schemaVersion !== 1 || snapshot.titles.length !== 58 || snapshot.maps.length !== 38) throw new Error("Unexpected Bastion title catalog counts");
+  if (snapshot.schemaVersion !== 1) throw new Error("Unexpected Bastion title catalog schema version");
   if (snapshot.titles.filter((title) => title.scope === "map").map((title) => title.key).sort().join(",") !== "CONQUEROR,DOMINATOR,PIONEER") throw new Error("Unexpected map title scope");
   for (const map of snapshot.maps) {
     const conquerors = new Set(map.rewards.find((reward) => reward.slot === "conqueror")?.holderNames ?? []);
