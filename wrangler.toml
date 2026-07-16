@@ -33,9 +33,8 @@ database_id = "40fb80aa-f17e-467d-9d4d-b8b3100b141d"
 migrations_dir = "migrations"
 
 [[kv_namespaces]]
-binding = "CACHE"
-# Replace with the production KV namespace ID before deployment.
-id = "00000000-0000-0000-0000-000000000000"
+binding = "owbastion-kv"
+id = "884487bfaf264bfeb4465ad4015128a6"
 
 [[r2_buckets]]
 binding = "EVIDENCE_BUCKET"
