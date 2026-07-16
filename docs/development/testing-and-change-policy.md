@@ -2,6 +2,9 @@
 
 ## Current implementation status
 
+The [feature status matrix](feature-status.md) is the single source of truth
+for capability status and verification evidence.
+
 The repository contains a runnable pnpm TypeScript workspace. The Hono
 Cloudflare Worker API implements health, authenticated v1 QQ binding and
 submission creation, public submission status, QQ browser-login attempts and
@@ -17,7 +20,8 @@ and achievement-catalog management.
 The first Portal map-challenge slice includes database-backed map and achievement
 catalogs, a public read-only achievement directory, upload validation, Queue-backed
 OCR orchestration, maintainer review, and the administrator-confirmed migration
-of historical titles to player accounts are implemented. New title issuance,
+of historical titles to player accounts. The matrix records these capabilities
+as coded until complete integration evidence is available. New title issuance,
 feature switches, and Bastion/GitHub orchestration are not implemented.
 
 Apply local migrations with:

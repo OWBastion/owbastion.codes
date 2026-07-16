@@ -4,6 +4,8 @@ This document describes public contracts and current implementation boundaries.
 It intentionally omits credentials, private endpoints, deployment configuration,
 and private operational data.
 
+Capability status is maintained only in the [feature status matrix](../development/feature-status.md).
+
 ## Implemented platform slice
 
 The current API implements versioned v1 QQ flows:

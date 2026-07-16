@@ -4,6 +4,9 @@
 
 ## Status and scope
 
+The capability status matrix in [development/feature-status.md](../development/feature-status.md)
+is the single source of truth for implementation and verification status.
+
 The repository contains an implemented TypeScript workspace with:
 
 - apps/api: a Hono Cloudflare Worker API;
@@ -15,7 +18,8 @@ The repository contains an implemented TypeScript workspace with:
 - an R2 evidence binding used when EVIDENCE_BUCKET is available.
 
 OCR orchestration, review, Bastion challenge snapshot import, and Queue-backed
-submission processing are implemented for the first map-challenge slice.
+submission processing are coded for the first map-challenge slice; their
+current status and verification evidence are tracked in the matrix.
 Grants, title issuance, and feature switches remain planned.
 
 ## Mission and ownership
