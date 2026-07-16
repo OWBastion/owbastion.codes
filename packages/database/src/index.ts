@@ -6,6 +6,7 @@ import { achievementChallenges, attachments, auditEvents, bindings, historicalTi
 import { userEvidenceObjectKey } from "./object-key";
 import { matchOcrResult } from "./ocr-match";
 import { assessOcrQuality, type OcrResponse } from "./ocr-response";
+import { catalogCacheKey, clearCatalogCache, withCatalogCache } from "./catalog-cache";
 
 const now = () => Date.now();
 const loginTtlMs = 2 * 60 * 1000;
@@ -13,6 +14,12 @@ const sessionTtlMs = 30 * 24 * 60 * 60 * 1000;
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const uploadTtlMs = 10 * 60 * 1000;
 const maxUploadBytes = 10 * 1024 * 1024;
+const publicTitleChallengeStatus = (status: string, startsAt: number | null, endsAt: number | null, timestamp: number) => {
+  if (status !== "scheduled") return status === "active" || status === "sunsetting" ? status : null;
+  if (startsAt === null || timestamp < startsAt) return "scheduled";
+  if (endsAt !== null && timestamp >= endsAt) return null;
+  return "active";
+};
 const randomToken = (bytes = 32) => {
   const value = new Uint8Array(bytes);
   crypto.getRandomValues(value);
@@ -94,7 +101,7 @@ const persistEvidence = async (db: ReturnType<typeof drizzle>, bucket: R2Bucket,
   return objectKey;
 };
 
-export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string): PlatformServices => {
+export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string, cache?: KVNamespace): PlatformServices => {
   const db = drizzle(database);
 
   const getPlayerOwnedSubmission = async (submissionId: string, sessionToken: string) => {
@@ -111,11 +118,14 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
 
   return {
     async listMaps() {
-      const rows = await db.select().from(maps).where(eq(maps.status, "active")).orderBy(maps.name);
-      return rows.map((row): Map => ({ mapId: row.id, mapName: row.name, gameVersion: row.gameVersion }));
+      return withCatalogCache(cache, catalogCacheKey("maps"), async () => {
+        const rows = await db.select().from(maps).where(eq(maps.status, "active")).orderBy(maps.name);
+        return rows.map((row): Map => ({ mapId: row.id, mapName: row.name, gameVersion: row.gameVersion }));
+      });
     },
 
     async listChallenges(input) {
+      return withCatalogCache(cache, catalogCacheKey(`challenges:${input?.family ?? "all"}`), async () => {
       const items: Challenge[] = [];
       if (!input?.family || input.family === "map") {
         const rows = await db.select({ challenge: achievementChallenges, map: maps })
@@ -141,9 +151,13 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         const rows = await db.select({ challenge: titleChallenges, title: titleCatalog })
           .from(titleChallenges)
           .innerJoin(titleCatalog, eq(titleChallenges.titleKey, titleCatalog.key))
-          .where(and(inArray(titleChallenges.status, ["active", "sunsetting"]), eq(titleCatalog.scope, "global"), eq(titleCatalog.availability, "active")))
+          .where(and(inArray(titleChallenges.status, ["scheduled", "active", "sunsetting"]), eq(titleCatalog.scope, "global"), eq(titleCatalog.availability, "active")))
           .orderBy(titleCatalog.category, titleCatalog.label);
-        items.push(...rows.map(({ challenge, title }): Challenge => ({
+        const timestamp = now();
+        items.push(...rows.flatMap(({ challenge, title }): Challenge[] => {
+          const status = publicTitleChallengeStatus(challenge.status, challenge.startsAt, challenge.endsAt, timestamp);
+          if (!status) return [];
+          return [{
           challengeId: challenge.id,
           family: "achievement",
           type: "title_achievement",
@@ -154,12 +168,16 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           condition: challenge.condition,
           evidenceRule: challenge.evidenceRule,
           gameVersion: challenge.gameVersion,
-          status: challenge.status as "active" | "sunsetting",
+          status: status as "scheduled" | "active" | "sunsetting",
+          startsAt: challenge.startsAt ?? undefined,
+          endsAt: challenge.endsAt ?? undefined,
           retiredVersion: challenge.retiredVersion ?? undefined,
           submissionMode: challenge.submissionMode as "manual" | "automatic",
-        })));
+          }];
+        }));
       }
       return items;
+      });
     },
 
     async listAdminChallenges(input) {
@@ -207,6 +225,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           submissionMode: challenge.submissionMode as "manual" | "automatic",
           introducedVersion: challenge.introducedVersion,
           retiredVersion: challenge.retiredVersion,
+          startsAt: challenge.startsAt,
+          endsAt: challenge.endsAt,
         })));
       }
       if (!input.family) {
@@ -255,9 +275,11 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           categoryOverride: input.categoryOverride,
           status: input.status,
           retiredVersion: input.status === "sunsetting" ? input.retiredVersion! : null,
+          startsAt: input.status === "scheduled" ? input.startsAt! : null,
+          endsAt: input.status === "scheduled" ? input.endsAt! : null,
           updatedAt: timestamp,
         }).where(eq(titleChallenges.id, row.challenge.id));
-        const response: AdminChallenge = { challengeId: row.challenge.id, family: "achievement", type: "title_achievement", kind: "title_achievement", titleKey: row.title.key, titleName: row.title.label, category: input.categoryOverride ?? row.title.category, categoryOverride: input.categoryOverride, condition: input.condition, evidenceRule: input.evidenceRule, gameVersion: row.challenge.gameVersion, status: input.status, submissionMode: input.submissionMode, introducedVersion: row.challenge.introducedVersion, retiredVersion: input.status === "sunsetting" ? input.retiredVersion! : null };
+        const response: AdminChallenge = { challengeId: row.challenge.id, family: "achievement", type: "title_achievement", kind: "title_achievement", titleKey: row.title.key, titleName: row.title.label, category: input.categoryOverride ?? row.title.category, categoryOverride: input.categoryOverride, condition: input.condition, evidenceRule: input.evidenceRule, gameVersion: row.challenge.gameVersion, status: input.status, submissionMode: input.submissionMode, introducedVersion: row.challenge.introducedVersion, retiredVersion: input.status === "sunsetting" ? input.retiredVersion! : null, startsAt: input.status === "scheduled" ? input.startsAt! : null, endsAt: input.status === "scheduled" ? input.endsAt! : null };
         await recordIdempotency(db, auth.subject, "admin.achievement.update", idempotencyKey, input, response);
         await recordAudit(db, auth, "admin.achievement.update", "challenge", input.challengeId, input);
         return response;
@@ -273,9 +295,11 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       await db.update(titleCatalog).set({ availability: input.status }).where(eq(titleCatalog.key, input.titleKey));
       await recordIdempotency(db, auth.subject, "admin.title.catalog.update", idempotencyKey, input, {});
       await recordAudit(db, auth, "admin.title.catalog.update", "title_catalog", input.titleKey, { status: input.status });
+      await clearCatalogCache(cache);
     },
 
     async listTitles(input) {
+      return withCatalogCache(cache, catalogCacheKey(`titles:${input.mapId ? encodeURIComponent(input.mapId) : "global"}`), async () => {
       const globalRows = await db.select().from(titleCatalog).where(eq(titleCatalog.scope, "global"));
       const globalTitles: Title[] = globalRows.map((row) => ({
         titleKey: row.key,
@@ -305,6 +329,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         pioneerPrefixes: JSON.parse(reward.pioneerPrefixesJson) as string[],
         gameVersion: title.gameVersion,
       })));
+      });
     },
 
     async listCurrentPlayerTitles(input) {
@@ -380,10 +405,11 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       const titleChallenge = mapChallenge ? null : await db.select({ challenge: titleChallenges, title: titleCatalog })
         .from(titleChallenges)
         .innerJoin(titleCatalog, eq(titleChallenges.titleKey, titleCatalog.key))
-        .where(and(eq(titleChallenges.id, input.challengeId), inArray(titleChallenges.status, ["active", "sunsetting"]), eq(titleCatalog.scope, "global"), eq(titleCatalog.availability, "active")))
+        .where(and(eq(titleChallenges.id, input.challengeId), inArray(titleChallenges.status, ["scheduled", "active", "sunsetting"]), eq(titleCatalog.scope, "global"), eq(titleCatalog.availability, "active")))
         .get();
       if (!account || account.status === "banned") throw new Error("PLAYER_BANNED");
       if (!mapChallenge && !titleChallenge) throw new Error("CHALLENGE_NOT_FOUND");
+      if (titleChallenge && !publicTitleChallengeStatus(titleChallenge.challenge.status, titleChallenge.challenge.startsAt, titleChallenge.challenge.endsAt, now())) throw new Error("CHALLENGE_NOT_FOUND");
       if (titleChallenge?.challenge.submissionMode === "automatic") throw new Error("CHALLENGE_AUTOMATIC");
       const challengeType = mapChallenge?.challenge.type ?? "title_achievement";
       const mapName = mapChallenge?.map.name ?? "成就挑战";

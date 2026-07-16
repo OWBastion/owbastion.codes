@@ -123,7 +123,8 @@ player-facing title result.
 - Achievement-management tests for maintainer authorization, three-state
   validation, idempotency replay and conflicts, audit records, immediate
   title-rule updates, planned retirement versions, reopening, and the
-  preservation of in-flight submissions after retirement.
+  preservation of in-flight submissions after retirement. Scheduled title
+  challenges must also be tested before, during, and after their time window.
 - Integration tests with fake R2, OCR, GitHub, and QQ clients as those
   integrations are introduced.
 - Queue redelivery, review, grant, and end-to-end tests when those workflows

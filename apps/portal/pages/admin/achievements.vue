@@ -4,7 +4,7 @@ import type { TableColumn, TabsItem } from "@nuxt/ui";
 definePageMeta({ middleware: ["auth", "admin-client"] });
 useSeoMeta({ title: "成就管理 · 躲避堡垒 3" });
 
-type AchievementStatus = "active" | "sunsetting" | "retired";
+type AchievementStatus = "scheduled" | "active" | "sunsetting" | "retired";
 type TitleAchievement = {
   challengeId: string;
   family: "achievement";
@@ -19,6 +19,8 @@ type TitleAchievement = {
   gameVersion: string;
   introducedVersion: string;
   retiredVersion: string | null;
+  startsAt?: number | null;
+  endsAt?: number | null;
 };
 type MapAchievement = {
   challengeId: string;
@@ -75,14 +77,14 @@ const isTitle = (item: AdminAchievement): item is TitleAchievement | CatalogTitl
 const isChallengeTitle = (item: AdminAchievement): item is TitleAchievement => item.family === "achievement";
 const isMap = (item: AdminAchievement): item is MapAchievement => item.family === "map";
 const itemName = (item: AdminAchievement) => isTitle(item) ? item.titleName : item.name;
-const statusText = (value: AchievementStatus) => value === "active" ? "已开放" : value === "sunsetting" ? "即将结束" : "已下线";
+const statusText = (value: AchievementStatus) => value === "scheduled" ? "未开放" : value === "active" ? "已开放" : value === "sunsetting" ? "即将结束" : "已下线";
 const statusTone = (value: AchievementStatus) => value === "active" ? "success" : "warning";
 const isSaving = (item: AdminAchievement) => savingId.value === item.challengeId;
 const statusColumnFilters = computed({
   get: () => status.value === "all" ? [] : [{ id: "status", value: status.value }],
   set: (filters: Array<{ id: string; value: unknown }>) => {
     const value = filters.find((filter) => filter.id === "status")?.value;
-    status.value = value === "active" || value === "sunsetting" || value === "retired" ? value : "all";
+    status.value = value === "scheduled" || value === "active" || value === "sunsetting" || value === "retired" ? value : "all";
   },
 });
 const titleItems = computed(() => items.value.filter(isTitle));
@@ -172,8 +174,12 @@ function titleUpdate(item: TitleAchievement, status: AchievementStatus = item.st
     categoryOverride: item.categoryOverride?.trim() || null,
     status,
     ...(status === "sunsetting" ? { retiredVersion: retiredVersion ?? item.retiredVersion ?? "" } : {}),
+    ...(status === "scheduled" ? { startsAt: item.startsAt ?? 0, endsAt: item.endsAt ?? 0 } : {}),
   };
 }
+
+const toDateTimeLocal = (value?: number | null) => value ? new Date(value).toISOString().slice(0, 16) : "";
+const setScheduleTime = (field: "startsAt" | "endsAt", value: string) => { if (editingItem.value) editingItem.value[field] = value ? new Date(value).getTime() : null; };
 
 function updatePayload(item: AdminAchievement, status: AchievementStatus, retiredVersion?: string) {
   if (isChallengeTitle(item)) return titleUpdate(item, status, retiredVersion);
@@ -287,7 +293,7 @@ onMounted(() => void load());
         <section class="catalog-section" aria-labelledby="title-achievements-title">
           <div class="section-heading"><div><p class="eyebrow">通用成就</p><h3 id="title-achievements-title">称号挑战</h3></div><span>{{ titleItems.length }} 项</span></div>
           <AdminDataTable v-model:column-filters="statusColumnFilters" :data="titleItems" :columns="titleColumns" :loading="loading" empty="暂无记录。" table-key="achievement-titles" class="admin-table achievement-table">
-            <template #filters><USelect v-model="status" size="md" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></template>
+            <template #filters><USelect v-model="status" size="md" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '未开放', value: 'scheduled' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></template>
             <template #category-cell="{ row }"><span class="table-meta">{{ row.original.category }}</span></template>
             <template #titleName-cell="{ row }"><strong>{{ row.original.titleName }}</strong><small class="table-meta">{{ isChallengeTitle(row.original) ? `引入版本 ${row.original.introducedVersion}` : row.original.scope === 'map' ? '地图称号' : '目录称号' }}</small></template>
             <template #condition-cell="{ row }"><span class="condition-cell">{{ row.original.condition }}</span></template>
@@ -300,6 +306,8 @@ onMounted(() => void load());
                 <UFormField class="editor-field" label="完成条件" required><UTextarea class="editor-control" v-model="editingItem.condition" required maxlength="1024" :disabled="isSaving(editingItem)" /></UFormField>
                 <UFormField class="editor-field" label="截图规则" required><UTextarea class="editor-control" v-model="editingItem.evidenceRule" required maxlength="2048" :disabled="isSaving(editingItem)" /></UFormField>
                 <UFormField class="editor-field" label="提交方式"><USelect class="editor-control" v-model="editingItem.submissionMode" :disabled="isSaving(editingItem)" :items="[{ label: '手动提交', value: 'manual' }, { label: '自动提交', value: 'automatic' }]" :ui="{ base: 'w-full' }" /></UFormField>
+                <UFormField class="editor-field" label="状态"><USelect class="editor-control" v-model="editingItem.status" :disabled="isSaving(editingItem)" :items="[{ label: '未开放', value: 'scheduled' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" :ui="{ base: 'w-full' }" /></UFormField>
+                <template v-if="editingItem.status === 'scheduled'"><UFormField class="editor-field" label="开始时间" required><UInput class="editor-control" type="datetime-local" :model-value="toDateTimeLocal(editingItem.startsAt)" required :disabled="isSaving(editingItem)" @update:model-value="setScheduleTime('startsAt', $event)" /></UFormField><UFormField class="editor-field" label="结束时间" required><UInput class="editor-control" type="datetime-local" :model-value="toDateTimeLocal(editingItem.endsAt)" required :disabled="isSaving(editingItem)" @update:model-value="setScheduleTime('endsAt', $event)" /></UFormField></template>
                 <UFormField class="editor-field" label="展示分类" :hint="`留空则使用 Bastion 系列“${editingItem.category}”`"><UInput class="editor-control" :model-value="editingItem.categoryOverride ?? ''" :disabled="isSaving(editingItem)" :placeholder="editingItem.category" maxlength="128" @update:model-value="setCategoryOverride" /></UFormField>
               </form>
             </template>

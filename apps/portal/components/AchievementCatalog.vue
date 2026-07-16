@@ -10,7 +10,9 @@ export type PublicAchievement = {
   condition: string;
   evidenceRule: string;
   gameVersion: string;
-  status: "active" | "sunsetting";
+  status: "scheduled" | "active" | "sunsetting";
+  startsAt?: number;
+  endsAt?: number;
   retiredVersion?: string;
   submissionMode: "manual" | "automatic";
 };
@@ -29,7 +31,7 @@ const groups = computed(() => {
       <div class="group-heading"><div><h2 :id="`category-${group.category}`">{{ group.category }}</h2></div><span>{{ group.challenges.length }} 项</span></div>
       <div class="achievement-grid">
         <article v-for="challenge in group.challenges" :key="challenge.challengeId" class="achievement-card">
-          <div class="achievement-card-copy"><strong>{{ challenge.titleName }}</strong><span>{{ challenge.condition }}</span><span v-if="challenge.status === 'sunsetting'" class="sunsetting"><b>即将结束</b><i>{{ challenge.retiredVersion }}</i></span></div>
+          <div class="achievement-card-copy"><strong>{{ challenge.titleName }}</strong><span>{{ challenge.condition }}</span><span v-if="challenge.status === 'scheduled'" class="scheduled">未开放</span><span v-else-if="challenge.status === 'sunsetting'" class="sunsetting"><b>即将结束</b><i>{{ challenge.retiredVersion }}</i></span></div>
         </article>
       </div>
     </section>

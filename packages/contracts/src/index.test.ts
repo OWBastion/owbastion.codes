@@ -47,6 +47,13 @@ describe("v1 platform contracts", () => {
     expect(adminChallengeUpdateRequestSchema.safeParse({ contractVersion: "1", family: "map", status: "retired" }).success).toBe(true);
   });
 
+  it("requires a complete time window for scheduled title challenges", () => {
+    const input = { contractVersion: "1", family: "achievement", condition: "完成挑战", evidenceRule: "完整截图", submissionMode: "manual", categoryOverride: null, status: "scheduled", startsAt: 2_000, endsAt: 3_000 };
+    expect(adminChallengeUpdateRequestSchema.safeParse(input).success).toBe(true);
+    expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, endsAt: 1_000 }).success).toBe(false);
+    expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, endsAt: undefined }).success).toBe(false);
+  });
+
   it("keeps historical retirement version records readable", () => {
     expect(adminChallengeSchema.safeParse({ challengeId: "map.test", family: "map", type: "map_completion", kind: "difficulty_completion", name: "测试挑战", mapId: "map.test", mapName: "测试地图", gameVersion: "2026.07.15", status: "retired", introducedVersion: "2026.07.15", retiredVersion: "2026.07.16" }).success).toBe(true);
   });

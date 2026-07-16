@@ -5,10 +5,11 @@ const props = defineProps<{ challenges: AchievementChallenge[]; selectedChalleng
 const emit = defineEmits<{ select: [challengeId: string] }>();
 
 const automaticChallenges = computed(() => props.challenges.filter((challenge) => challenge.submissionMode === "automatic"));
+const scheduledChallenges = computed(() => props.challenges.filter((challenge) => challenge.submissionMode === "manual" && challenge.status === "scheduled"));
 const manualGroups = computed(() => {
   const groups = new Map<string, AchievementChallenge[]>();
   for (const challenge of props.challenges) {
-    if (challenge.submissionMode === "automatic") continue;
+    if (challenge.submissionMode === "automatic" || challenge.status === "scheduled") continue;
     groups.set(challenge.category, [...(groups.get(challenge.category) ?? []), challenge]);
   }
   return [...groups].map(([category, challenges]) => ({ category, challenges }));
@@ -30,7 +31,11 @@ const manualGroups = computed(() => {
         <button v-for="challenge in group.challenges" :key="challenge.challengeId" class="achievement-card" :class="{ selected: selectedChallengeId === challenge.challengeId }" type="button" @click="emit('select', challenge.challengeId)"><span class="card-kicker">挑战称号</span><strong>{{ challenge.titleName }}</strong><span>{{ challenge.condition }}</span><span v-if="challenge.status === 'sunsetting'" class="sunsetting"><b>即将结束</b><i>{{ challenge.retiredVersion }}</i></span></button>
       </div>
     </section>
-    <p v-if="!automaticChallenges.length && !manualGroups.length" class="empty-state">暂无可提交的成就挑战。地图通关仍可提交。</p>
+    <section v-if="scheduledChallenges.length" class="achievement-section upcoming-section" aria-labelledby="upcoming-achievements-title">
+      <div class="group-heading"><div><p class="card-kicker">暂未开放</p><h3 id="upcoming-achievements-title">即将开始</h3></div><span>{{ scheduledChallenges.length }} 个称号</span></div>
+      <div class="achievement-grid"><article v-for="challenge in scheduledChallenges" :key="challenge.challengeId" class="achievement-card upcoming"><span class="card-kicker">挑战称号</span><strong>{{ challenge.titleName }}</strong><span>{{ challenge.condition }}</span><small>未开放，暂不接受截图提交。</small></article></div>
+    </section>
+    <p v-if="!automaticChallenges.length && !manualGroups.length && !scheduledChallenges.length" class="empty-state">暂无可提交的成就挑战。地图通关仍可提交。</p>
   </section>
 </template>
 

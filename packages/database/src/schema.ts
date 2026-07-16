@@ -127,6 +127,8 @@ export const titleChallenges = sqliteTable("title_challenges", {
   status: text("status").notNull(),
   introducedVersion: text("introduced_version").notNull(),
   retiredVersion: text("retired_version"),
+  startsAt: integer("starts_at"),
+  endsAt: integer("ends_at"),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });

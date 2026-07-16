@@ -9,7 +9,7 @@ const storedRetirementVersion = z.string().trim().min(1).max(64);
 const challengeStatus = z.enum(["active", "sunsetting", "retired"]);
 const playableChallengeStatus = z.enum(["active", "sunsetting"]);
 const titleChallengeStatus = z.enum(["scheduled", "active", "sunsetting", "retired"]);
-const scheduleTimestamp = z.number().int().nonnegative();
+const scheduleTimestamp = z.number().int().positive();
 
 export const qqBindingRequestSchema = z.object({
   contractVersion,
@@ -172,8 +172,8 @@ const adminAchievementChallengeSchema = achievementChallengeSchema.extend({
   status: titleChallengeStatus,
   introducedVersion: z.string().trim().min(1).max(64),
   retiredVersion: storedRetirementVersion.nullable(),
-  startsAt: scheduleTimestamp.nullable(),
-  endsAt: scheduleTimestamp.nullable(),
+  startsAt: scheduleTimestamp.nullable().optional(),
+  endsAt: scheduleTimestamp.nullable().optional(),
 });
 const adminCatalogTitleSchema = z.object({
   challengeId: externalId,
