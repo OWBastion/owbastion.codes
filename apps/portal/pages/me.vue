@@ -23,8 +23,8 @@ onMounted(async () => {
       <PlayerIdentityCard :player-name="player.player.playerName" :player-id="player.player.playerId" aria-label="玩家身份" />
 
       <section class="section-block titles-section" aria-labelledby="titles-title">
-        <PageSectionHeader title="已有称号" />
-        <TitleCollection v-if="titles.length" :titles="titles" />
+        <PageSectionHeader title="最近获得的称号"><template #actions><UButton to="/achievements" label="查看全部成就" color="neutral" variant="outline" /></template></PageSectionHeader>
+        <TitleCollection v-if="titles.length" :titles="titles.slice(0, 3)" />
         <UEmpty v-else title="暂无称号" variant="naked" />
       </section>
 
