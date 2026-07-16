@@ -5,6 +5,7 @@ import type { AdminChallenge, AdminChallengeUpdateRequest, Challenge, Map, QqBin
 import { achievementChallenges, attachments, auditEvents, bindings, historicalTitleGrants, identities, idempotencyKeys, mapTitleRewards, maps, ocrResults, playerAccounts, playerTitleGrants, qqGroupAccess, qqLoginAttempts, qqSessions, submissionReviews, submissions, titleCatalog, titleChallenges, uploadSessions } from "./schema";
 import { userEvidenceObjectKey } from "./object-key";
 import { matchOcrResult } from "./ocr-match";
+import { assessOcrQuality, type OcrResponse } from "./ocr-response";
 
 const now = () => Date.now();
 const loginTtlMs = 2 * 60 * 1000;
@@ -458,20 +459,35 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
 
     async processOcrJob(input) {
       if (!evidenceBucket || !ocrkitBaseUrl || !ocrkitEvidenceBucket) throw new Error("OCR_NOT_CONFIGURED");
-      const response = await fetch(`${ocrkitBaseUrl.replace(/\/$/, "")}/api/v1/ocr/challenge/by-object`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ object_key: input.objectKey, bucket: ocrkitEvidenceBucket }) });
-      if (!response.ok) {
-        await db.insert(ocrResults).values({ id: crypto.randomUUID(), submissionId: input.submissionId, attempt: input.attempt, status: "error", errorCode: `OCR_HTTP_${response.status}`, createdAt: now() });
-        if (input.attempt >= 3) await db.update(submissions).set({ status: "ocr_review_required", updatedAt: now() }).where(eq(submissions.id, input.submissionId));
-        throw new Error("OCR_RETRYABLE");
-      }
-      const result = await response.json() as { data?: { map_name?: string | null; difficulty?: string | null; challenge_completed?: boolean | null; player?: string | null }; fields?: unknown };
+      let response: Response;
+      try {
+        response = await fetch(`${ocrkitBaseUrl.replace(/\/$/, "")}/api/v1/ocr/challenge/by-object`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ object_key: input.objectKey, bucket: ocrkitEvidenceBucket }) });
+      } catch { throw new Error("OCR_NETWORK"); }
+      if (!response.ok) throw new Error(`OCR_HTTP_${response.status}`);
+      let result: OcrResponse & { data?: { map_name?: string | null; difficulty?: string | null; challenge_completed?: boolean | null; player?: string | null } };
+      try { result = await response.json() as typeof result; }
+      catch { throw new Error("OCR_INVALID_RESPONSE"); }
       const row = await db.select().from(submissions).where(eq(submissions.id, input.submissionId)).get();
       if (!row) throw new Error("SUBMISSION_NOT_FOUND");
+      if (row.status !== "ocr_pending") return;
       const data = result.data ?? {};
+      const quality = assessOcrQuality(row.challengeType, result);
+      if (!quality.accepted) {
+        await db.insert(ocrResults).values({ id: crypto.randomUUID(), submissionId: row.id, attempt: input.attempt, status: "review_required", responseJson: JSON.stringify(result), matchJson: JSON.stringify({ qualityGate: quality }), createdAt: now() });
+        await db.update(submissions).set({ status: "ocr_review_required", updatedAt: now(), reviewReason: "OCR 结果需要人工核对" }).where(and(eq(submissions.id, row.id), eq(submissions.status, "ocr_pending")));
+        return;
+      }
       const { skipped, ...match } = matchOcrResult({ challengeType: row.challengeType, targetMapName: row.mapName, targetDifficulty: row.difficulty, targetPlayerName: row.playerName, mapName: data.map_name, difficulty: data.difficulty, challengeCompleted: data.challenge_completed, player: data.player });
       const matched = Object.values(match).every(Boolean);
-      await db.insert(ocrResults).values({ id: crypto.randomUUID(), submissionId: row.id, attempt: input.attempt, status: matched ? "matched" : "mismatch", responseJson: JSON.stringify(result), matchJson: JSON.stringify({ ...match, skipped }), createdAt: now() });
-      await db.update(submissions).set({ status: matched ? "ready_for_review" : "resubmission_required", updatedAt: now(), reviewReason: matched ? null : "OCR 结果与目标挑战不匹配" }).where(eq(submissions.id, row.id));
+      await db.insert(ocrResults).values({ id: crypto.randomUUID(), submissionId: row.id, attempt: input.attempt, status: matched ? "matched" : "mismatch", responseJson: JSON.stringify(result), matchJson: JSON.stringify({ ...match, skipped, qualityGate: quality }), createdAt: now() });
+      await db.update(submissions).set({ status: matched ? "ready_for_review" : "resubmission_required", updatedAt: now(), reviewReason: matched ? null : "OCR 结果与目标挑战不匹配" }).where(and(eq(submissions.id, row.id), eq(submissions.status, "ocr_pending")));
+    },
+
+    async markOcrJobFailed(input) {
+      const row = await db.select().from(submissions).where(eq(submissions.id, input.submissionId)).get();
+      if (!row || row.status !== "ocr_pending") return;
+      await db.insert(ocrResults).values({ id: crypto.randomUUID(), submissionId: row.id, attempt: input.attempt, status: "error", errorCode: input.errorCode, createdAt: now() });
+      await db.update(submissions).set({ status: "ocr_review_required", updatedAt: now(), reviewReason: "OCR 服务异常，需要人工核对" }).where(and(eq(submissions.id, row.id), eq(submissions.status, "ocr_pending")));
     },
 
     async listQqGroupAccess() {

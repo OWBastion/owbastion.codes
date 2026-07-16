@@ -14,7 +14,13 @@ const panelOpen = computed({ get: () => selected.value !== null, set: (value) =>
 const formatStatus = (value: string) => submissionStatusText[value] ?? value;
 async function load() {
   loading.value = true; errorMessage.value = "";
-  try { submissions.value = (await api<{ items: AdminSubmission[] }>("/v1/submissions?status=ready_for_review")).items; }
+  try {
+    const [ready, reviewRequired] = await Promise.all([
+      api<{ items: AdminSubmission[] }>("/v1/submissions?status=ready_for_review"),
+      api<{ items: AdminSubmission[] }>("/v1/submissions?status=ocr_review_required"),
+    ]);
+    submissions.value = [...ready.items, ...reviewRequired.items].sort((left, right) => right.updatedAt - left.updatedAt);
+  }
   catch (error: any) { errorMessage.value = error?.data?.error?.message ?? "无法读取待核对截图，请确认当前账号有管理员权限。"; }
   finally { loading.value = false; }
 }

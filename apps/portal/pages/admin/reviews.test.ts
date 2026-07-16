@@ -5,6 +5,7 @@ import ReviewsPage from "./reviews.vue";
 
 const adminApi = vi.fn((path: string) => {
   if (path === "/v1/submissions?status=ready_for_review") return Promise.resolve({ items: [{ submissionId: "submission-1", mapName: "帕拉伊苏", difficulty: "困难", playerName: "他又", status: "ready_for_review" }] });
+  if (path === "/v1/submissions?status=ocr_review_required") return Promise.resolve({ items: [{ submissionId: "submission-2", mapName: "釜山", difficulty: "专家", playerName: "他又", status: "ocr_review_required" }] });
   if (path === "/v1/submissions/submission-1") return Promise.resolve({ submissionId: "submission-1", mapName: "帕拉伊苏", difficulty: "困难", playerName: "他又", status: "ready_for_review" });
   throw new Error(`Unexpected request: ${path}`);
 });
@@ -15,6 +16,7 @@ describe("admin reviews page", () => {
     adminApi.mockClear();
     const wrapper = await mountSuspended(ReviewsPage, { attachTo: document.body });
     await flushPromises();
+    expect(wrapper.findAll(".row")).toHaveLength(2);
     await wrapper.get(".row").trigger("click");
     await flushPromises();
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();

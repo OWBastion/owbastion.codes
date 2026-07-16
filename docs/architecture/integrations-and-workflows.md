@@ -72,9 +72,12 @@ upload_pending
 
 The legacy QQ flow retains its evidence retrieval states. Portal uploads are
 single-image submissions and enter `ocr_pending` only after the upload hash,
-size, content type, and private object ownership are verified. OCR mismatches
-become `resubmission_required`; repeated OCR service failures become
-`ocr_review_required`.
+size, content type, and private object ownership are verified. A high-quality
+OCR mismatch becomes `resubmission_required`. Unsupported OCR responses,
+missing or low-confidence fields, and exhausted OCR failures become
+`ocr_review_required`, so a maintainer can inspect the evidence rather than
+leaving a submission pending or treating uncertain recognition as a player
+error.
 
 Approval records the human decision only. Player title migration records a
 maintainer-confirmed historical entitlement; it does not issue a new Bastion
@@ -122,11 +125,11 @@ later refresh fails and fails closed before the first successful snapshot.
 
 ## OCR integration
 
-OCRKit remains the recognition-only service. For map challenges, the platform
-compares its structured `map_name`, `difficulty`, `challenge_completed`, and
-`player` fields with the selected Bastion challenge and bound player. For manual
-title challenges, the platform ignores the synthetic submission map name and
-null difficulty, using only `challenge_completed` and `player` as OCR prechecks
-before human review. OCRKit does not decide eligibility or approval. Bastion
-changes must remain reviewable, idempotent, and reconciled through its own CI
-and release process.
+OCRKit remains the recognition-only service. The platform accepts only response
+schema version `1`, `ok: true`, and required field evidence at or above its
+configured confidence gate before value matching. For map challenges, this covers
+`map_name`, `difficulty`, `challenge_completed`, and `player`; for manual title
+challenges, it covers only `challenge_completed` and `player`. Uncertain OCR is
+routed to human review. Title-specific conditions remain human-reviewed;
+OCRKit does not decide eligibility or approval. Bastion changes must remain
+reviewable, idempotent, and reconciled through its own CI and release process.

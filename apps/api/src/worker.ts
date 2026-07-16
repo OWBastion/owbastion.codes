@@ -13,7 +13,12 @@ export default {
     const platform = createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET);
     for (const message of batch.messages) {
       try { await platform.processOcrJob({ ...message.body, attempt: message.attempts }); message.ack(); }
-      catch { if (message.attempts >= 3) message.ack(); else message.retry({ delaySeconds: Math.min(60, 5 * message.attempts) }); }
+      catch (error) {
+        if (message.attempts < 3) { message.retry({ delaySeconds: Math.min(60, 5 * message.attempts) }); continue; }
+        const errorCode = error instanceof Error && error.message.startsWith("OCR_") ? error.message : "OCR_PROCESS_FAILED";
+        try { await platform.markOcrJobFailed({ submissionId: message.body.submissionId, attempt: message.attempts, errorCode }); message.ack(); }
+        catch { message.retry({ delaySeconds: 60 }); }
+      }
     }
   },
 };
