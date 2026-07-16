@@ -38,5 +38,6 @@ onMounted(async () => {
 
 <style scoped>
 .maps-page { padding-block: clamp(88px, 13vh, 145px) 72px; }.page-intro { max-width: 690px; margin-bottom: 42px; }.page-intro .eyebrow { margin-bottom: .8rem; }.map-directory-panel { padding: clamp(18px, 4vw, 36px); }.directory-state { margin: 0; padding: 110px 0; color: var(--muted); text-align: center; }
-@media (max-width: 620px) { .maps-page { padding-block: 64px 56px; }.page-intro { margin-bottom: 28px; } }
+@media (max-width: 620px) { .maps-page { padding-block: 56px 48px; }.page-intro { margin-bottom: 24px; }.map-directory-panel { padding: 14px; } }
+@media (max-width: 360px) { .maps-page { padding-block: 44px 40px; }.map-directory-panel { padding: 10px; } }
 </style>
