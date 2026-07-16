@@ -81,6 +81,7 @@ async function signOut() {
   .app-header-wrap { top: max(8px, env(safe-area-inset-top)); }
   .app-header { position: relative; gap: 10px; min-height: 52px; padding: 6px 8px 6px 10px; }
   .main-nav { display: none; }
+  .account-actions { margin-left: auto; }
   .mobile-menu-toggle { display: inline-grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); }
   .mobile-menu-toggle svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
   .mobile-nav { position: absolute; z-index: 2; inset: calc(100% + 8px) 0 auto; display: grid; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--menu-surface); box-shadow: 0 8px 18px -8px var(--shadow); }
