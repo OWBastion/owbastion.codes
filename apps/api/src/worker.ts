@@ -4,13 +4,13 @@ import { createApp, type RuntimeEnv } from "./app";
 
 const app = createApp({
   authenticate: authenticatePlatformActor,
-  services: (env) => createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET),
+  services: (env) => createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE),
 });
 
 export default {
   fetch: app.fetch,
   async queue(batch: MessageBatch<{ version: number; submissionId: string; objectKey: string }>, env: RuntimeEnv) {
-    const platform = createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET);
+    const platform = createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE);
     for (const message of batch.messages) {
       try { await platform.processOcrJob({ ...message.body, attempt: message.attempts }); message.ack(); }
       catch (error) {

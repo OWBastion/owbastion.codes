@@ -18,6 +18,7 @@ import type { Authenticator, PlatformServices } from "@owbastion/domain";
 
 export type RuntimeEnv = {
   DB: D1Database;
+  CACHE?: KVNamespace;
   EVIDENCE_BUCKET?: R2Bucket;
   QQBOT_API_TOKEN?: string;
   LOGIN_SESSION_TTL_MS?: string;

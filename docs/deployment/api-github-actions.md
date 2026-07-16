@@ -12,7 +12,21 @@ deployment job:
 
 - D1 database named `owbastion-codes-prod`;
 - R2 bucket named `owbastion-codes-evidence`;
+- KV namespace for derived catalog caches, bound as `CACHE`;
 - the real D1 `database_id` written to `wrangler.toml`.
+
+Create the KV namespace with Wrangler, then replace the `CACHE` placeholder ID
+in `wrangler.toml` with the returned namespace ID. Namespace IDs are account
+resources and are not secrets, but the repository must not contain a guessed
+production ID:
+
+~~~bash
+pnpm exec wrangler kv namespace create owbastion-codes-cache --binding CACHE
+~~~
+
+The local configuration uses a separate local KV namespace ID. Wrangler local
+development stores KV data locally by default, so local cache state does not
+affect production.
 
 Do not reuse the QQBot channel-state D1 or OCRKit's model/evidence bucket.
 For the coded OCRKit orchestration, set the Worker variable
@@ -51,7 +65,8 @@ applies forward-only remote D1 migrations, validates and bootstraps
 the API URL.
 
 The workflow refuses to deploy while the D1 ID is still the repository's
-placeholder. It does not reset, delete, or roll back D1 data.
+placeholder or while the `CACHE` KV ID is still its placeholder. It does not
+reset, delete, or roll back D1 or KV data.
 
 The Worker is deployed to the Git-managed Custom Domain
 `https://api.owbastion.com`. The workflow does not automatically verify the

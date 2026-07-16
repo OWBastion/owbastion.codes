@@ -26,7 +26,7 @@ describe("OCR Queue consumer", () => {
 
     await worker.queue({ messages: [message] } as never, { OCRKIT_EVIDENCE_BUCKET: "owbastion-codes-evidence" } as never);
 
-    expect(createPlatformServices).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, undefined, "owbastion-codes-evidence");
+    expect(createPlatformServices).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, undefined, "owbastion-codes-evidence", undefined);
     expect(processOcrJob).toHaveBeenCalledWith({
       version: 1,
       submissionId: "submission-1",

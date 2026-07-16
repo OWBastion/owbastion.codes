@@ -120,6 +120,8 @@ jobs:
           } >> "$GITHUB_ENV"
           test "$(grep -c 'database_id = "00000000-0000-0000-0000-000000000000"' wrangler.toml)" -eq 0
           test "$(grep -c 'database_name = "owbastion-codes-prod"' wrangler.toml)" -eq 1
+          test "$(grep -c 'binding = "CACHE"' wrangler.toml)" -eq 1
+          test "$(grep -c 'id = "00000000-0000-0000-0000-000000000000"' wrangler.toml)" -eq 0
 
       - name: Ensure OCR queue exists
         shell: bash
