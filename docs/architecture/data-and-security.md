@@ -9,7 +9,9 @@
 | Bastion Git and snapshots | Released game content and version history; the platform stores an imported immutable catalog snapshot |
 
 The OCR Queue carries only an opaque submission ID, private object key, and
-schema version. The consumer receives the delivery attempt count from Queue
+schema version. The consumer resolves the platform evidence bucket from the
+Worker configuration and passes it explicitly to OCRKit; OCRKit's default
+bucket is not used for platform evidence. The consumer receives the delivery attempt count from Queue
 metadata and records it with OCR results. OCR raw output and review decisions
 remain in D1; no private screenshot is committed to the repository.
 
