@@ -9,5 +9,6 @@ describe("AchievementCatalog", () => {
     });
     expect(wrapper.text()).toContain("即将结束");
     expect(wrapper.text()).toContain("26.0713.2");
+    expect(wrapper.find(".eyebrow").exists()).toBe(false);
   });
 });

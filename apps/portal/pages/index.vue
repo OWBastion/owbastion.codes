@@ -28,7 +28,7 @@ useSeoMeta({
     </section>
 
     <section class="content-section" aria-labelledby="content-title">
-      <div class="section-heading"><div><p class="eyebrow">社区内容</p><h2 id="content-title">游玩记录</h2></div><p>仅展示公开内容。</p></div>
+      <div class="section-heading"><div><h2 id="content-title">游玩记录</h2></div><p>仅展示公开内容。</p></div>
       <div class="content-grid">
         <article id="events" class="content-card content-card-wide"><p class="card-label">事件</p><h3>随机事件</h3><p>已发布的随机事件与规则变化。</p></article>
         <NuxtLink id="achievements" to="/achievements" class="content-card"><p class="card-label">成就</p><h3>完成过的挑战</h3><p>查看已发布的目标与完成条件。</p></NuxtLink>
