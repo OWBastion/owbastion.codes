@@ -262,6 +262,30 @@ describe("API", () => {
     expect(await response.json()).toMatchObject({ error: { code: "CHALLENGE_NOT_FOUND" } });
   });
 
+  it("maps upload ownership failures to an invalid upload session", async () => {
+    const ownershipApp = createApp({
+      authenticate: async () => null,
+      services: () => ({
+        ...services,
+        uploadEvidence: async () => { throw new Error("UPLOAD_SESSION_INVALID"); },
+        completePlayerUpload: async () => { throw new Error("UPLOAD_SESSION_INVALID"); },
+      }),
+    });
+    const upload = await ownershipApp.request("http://localhost/v1/uploads/00000000-0000-0000-0000-000000000004", {
+      method: "PUT",
+      headers: { cookie: "owb_session=session-token", "content-type": "image/png" },
+      body: "evidence",
+    }, env);
+    const complete = await ownershipApp.request("http://localhost/v1/player/uploads/00000000-0000-0000-0000-000000000004/complete", {
+      method: "POST",
+      headers: { cookie: "owb_session=session-token" },
+    }, env);
+    expect(upload.status).toBe(422);
+    expect(complete.status).toBe(422);
+    expect((await upload.json() as { error: { code: string } }).error.code).toBe("UPLOAD_SESSION_INVALID");
+    expect((await complete.json() as { error: { code: string } }).error.code).toBe("UPLOAD_SESSION_INVALID");
+  });
+
   it("clears the portal session on logout", async () => {
     const loggedOut: string[] = [];
     const logoutApp = createApp({ authenticate: auth, services: () => ({ ...services, logoutPortalSession: async ({ sessionToken }) => { loggedOut.push(sessionToken); } }) });
