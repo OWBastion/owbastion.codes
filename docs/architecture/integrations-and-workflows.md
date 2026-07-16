@@ -27,6 +27,9 @@ The current API implements versioned v1 QQ flows:
   bound player and up to five recent submissions after session verification.
 - the Portal can select an imported Bastion challenge, create a single-image
   upload session, upload private evidence, and complete the upload;
+- an authenticated player can read only their own submission detail and
+  screenshot, plus a constrained OCR summary; public submission status remains
+  free of evidence and OCR fields;
 - the platform stores a versioned Bastion title catalog, all released maps,
   map-only `PIONEER`/`CONQUEROR`/`DOMINATOR` reward slots, and historical title
   holder snapshots without linking source names to platform accounts;
@@ -51,6 +54,11 @@ with platform-generated keys under `uploads/submissions/<submissionId>/`; the
 same object key and the explicit platform evidence bucket are sent to OCRKit.
 The platform must not rely on OCRKit's default bucket, which is reserved for
 OCRKit's own configured storage and model artifacts.
+
+Player screenshot reads are authenticated and ownership-scoped to the current
+player account. The Portal proxies the private object without issuing an object
+URL; it returns only the recognized map, difficulty, player, and completion
+values, never OCRKit's raw response or internal match evidence.
 
 ## Submission lifecycle
 

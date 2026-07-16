@@ -4,6 +4,7 @@ import type {
   SubmissionRequest,
   SubmissionResponse,
   SubmissionStatusResponse,
+  PlayerSubmissionDetail,
   QqLoginAttemptRequest,
   QqLoginAttemptResponse,
   QqLoginStatusResponse,
@@ -63,6 +64,8 @@ export type PlatformServices = {
   createBinding(input: QqBindingRequest, auth: AuthContext, idempotencyKey: string): Promise<QqBindingResponse>;
   createSubmission(input: SubmissionRequest, auth: AuthContext, idempotencyKey: string): Promise<SubmissionResponse>;
   getSubmission(input: { submissionId: string }, auth: AuthContext): Promise<SubmissionStatusResponse>;
+  getPlayerSubmission(input: { submissionId: string }, sessionToken: string): Promise<PlayerSubmissionDetail>;
+  getPlayerEvidence(input: { submissionId: string }, sessionToken: string): Promise<{ body: ArrayBuffer; contentType: string }>;
   createQqLoginAttempt(input: QqLoginAttemptRequest): Promise<QqLoginAttemptResponse>;
   getQqLoginStatus(input: { attemptId: string; attemptToken: string }): Promise<QqLoginStatusResponse>;
   verifyQqLogin(input: QqLoginVerifyRequest, auth: AuthContext, idempotencyKey: string): Promise<QqLoginVerifyResponse>;

@@ -274,6 +274,17 @@ export const submissionStatusResponseSchema = z.object({
   updatedAt: z.number().int(),
 });
 
+export const playerSubmissionOcrSummarySchema = z.object({
+  mapName: z.string().nullable(),
+  difficulty: z.string().nullable(),
+  playerName: z.string().nullable(),
+  challengeCompleted: z.boolean().nullable(),
+}).strict();
+
+export const playerSubmissionDetailSchema = submissionStatusResponseSchema.extend({
+  ocr: playerSubmissionOcrSummarySchema.optional(),
+});
+
 export const adminPlayerDetailSchema = adminPlayerSummarySchema.extend({
   bindings: z.array(adminBindingSchema),
   recentSubmissions: z.array(submissionStatusResponseSchema.omit({ contractVersion: true })).max(10),
@@ -315,6 +326,7 @@ export type AdminPlayerStatusRequest = z.infer<typeof adminPlayerStatusRequestSc
 export type SubmissionRequest = z.infer<typeof submissionRequestSchema>;
 export type SubmissionResponse = z.infer<typeof submissionResponseSchema>;
 export type SubmissionStatusResponse = z.infer<typeof submissionStatusResponseSchema>;
+export type PlayerSubmissionDetail = z.infer<typeof playerSubmissionDetailSchema>;
 export type CurrentPlayerResponse = z.infer<typeof currentPlayerResponseSchema>;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type Challenge = z.infer<typeof challengeSchema>;

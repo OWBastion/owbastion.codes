@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminChallengeSchema, adminChallengeUpdateRequestSchema, adminSubmissionReviewRequestSchema, currentPlayerResponseSchema, playerUploadSessionRequestSchema, qqBindingRequestSchema, qqLoginVerifyRequestSchema, submissionRequestSchema } from "./index";
+import { adminChallengeSchema, adminChallengeUpdateRequestSchema, adminSubmissionReviewRequestSchema, currentPlayerResponseSchema, playerSubmissionDetailSchema, playerUploadSessionRequestSchema, qqBindingRequestSchema, qqLoginVerifyRequestSchema, submissionRequestSchema } from "./index";
 
 describe("v1 platform contracts", () => {
   it("accepts stable QQ binding metadata", () => {
@@ -20,6 +20,11 @@ describe("v1 platform contracts", () => {
 
   it("accepts a player response without QQ identifiers", () => {
     expect(currentPlayerResponseSchema.safeParse({ contractVersion: "1", player: { playerId: "1234", playerName: "Player", bindingStatus: "bound", isAdmin: false }, recentSubmissions: [] }).success).toBe(true);
+  });
+
+  it("accepts player OCR summaries without raw recognition output", () => {
+    expect(playerSubmissionDetailSchema.safeParse({ contractVersion: "1", submissionId: "00000000-0000-4000-8000-000000000003", status: "ready_for_review", mapName: "测试地图", createdAt: 1, updatedAt: 2, ocr: { mapName: "测试地图", difficulty: "困难", playerName: "Player", challengeCompleted: true } }).success).toBe(true);
+    expect(playerSubmissionDetailSchema.safeParse({ contractVersion: "1", submissionId: "00000000-0000-4000-8000-000000000003", status: "ready_for_review", mapName: "测试地图", createdAt: 1, updatedAt: 2, ocr: { responseJson: {} } }).success).toBe(false);
   });
 
   it("validates the single-image portal upload contract", () => {

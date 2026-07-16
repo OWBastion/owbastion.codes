@@ -33,6 +33,12 @@ the result under a submission-scoped private R2 key. The upload URL cannot be
 reused after completion. It does not expose object keys, source URLs, or QQ
 OpenIDs from public status and player endpoints.
 
+Player submission detail and evidence reads require the Portal session and
+verify that the submission belongs to the current player account. Evidence is
+proxied with private, no-store caching rather than a public object URL. The
+player-facing OCR summary contains only recognized map, difficulty, player, and
+completion values; raw OCR output and internal match details remain private.
+
 ## Private login and player data
 
 QQ login codes, attempt tokens, session tokens, group OpenIDs, and member

@@ -96,6 +96,18 @@ const persistEvidence = async (db: ReturnType<typeof drizzle>, bucket: R2Bucket,
 export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string): PlatformServices => {
   const db = drizzle(database);
 
+  const getPlayerOwnedSubmission = async (submissionId: string, sessionToken: string) => {
+    const session = await db.select().from(qqSessions).where(and(eq(qqSessions.tokenHash, await hashRequest(sessionToken)), gt(qqSessions.expiresAt, now()))).get();
+    if (!session) throw new Error("UNAUTHENTICATED");
+    const currentBinding = await db.select().from(bindings).where(and(eq(bindings.provider, "qq"), eq(bindings.groupOpenId, session.groupOpenId), eq(bindings.memberOpenId, session.memberOpenId))).get();
+    if (!currentBinding) throw new Error("UNAUTHENTICATED");
+    const submission = await db.select().from(submissions).where(eq(submissions.id, submissionId)).get();
+    if (!submission) throw new Error("SUBMISSION_NOT_FOUND");
+    const submissionBinding = await db.select().from(bindings).where(eq(bindings.id, submission.bindingId)).get();
+    if (!submissionBinding || submissionBinding.playerAccountId !== currentBinding.playerAccountId) throw new Error("SUBMISSION_NOT_FOUND");
+    return submission;
+  };
+
   return {
     async listMaps() {
       const rows = await db.select().from(maps).where(eq(maps.status, "active")).orderBy(maps.name);
@@ -396,6 +408,34 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
 
     async getAdminEvidence(input) {
       if (!evidenceBucket) throw new Error("EVIDENCE_BUCKET_UNAVAILABLE");
+      const attachment = await db.select().from(attachments).where(eq(attachments.submissionId, input.submissionId)).orderBy(desc(attachments.createdAt)).limit(1).get();
+      if (!attachment?.objectKey) throw new Error("EVIDENCE_NOT_FOUND");
+      const object = await evidenceBucket.get(attachment.objectKey);
+      if (!object) throw new Error("EVIDENCE_NOT_FOUND");
+      return { body: await object.arrayBuffer(), contentType: object.httpMetadata?.contentType ?? attachment.contentType };
+    },
+
+    async getPlayerSubmission(input, sessionToken) {
+      const submission = await getPlayerOwnedSubmission(input.submissionId, sessionToken);
+      const result = await db.select().from(ocrResults).where(eq(ocrResults.submissionId, submission.id)).orderBy(desc(ocrResults.createdAt)).limit(1).get();
+      const raw = result?.responseJson ? JSON.parse(result.responseJson) as { data?: { map_name?: string | null; difficulty?: string | null; player?: string | null; challenge_completed?: boolean | null } } : null;
+      return {
+        contractVersion: "1" as const,
+        submissionId: submission.id,
+        status: submission.status as never,
+        mapName: submission.mapName,
+        challengeId: submission.challengeId ?? undefined,
+        difficulty: submission.difficulty ?? undefined,
+        reason: submission.reviewReason ?? undefined,
+        createdAt: submission.createdAt,
+        updatedAt: submission.updatedAt,
+        ...(raw ? { ocr: { mapName: raw.data?.map_name ?? null, difficulty: raw.data?.difficulty ?? null, playerName: raw.data?.player ?? null, challengeCompleted: raw.data?.challenge_completed ?? null } } : {}),
+      };
+    },
+
+    async getPlayerEvidence(input, sessionToken) {
+      if (!evidenceBucket) throw new Error("EVIDENCE_NOT_FOUND");
+      await getPlayerOwnedSubmission(input.submissionId, sessionToken);
       const attachment = await db.select().from(attachments).where(eq(attachments.submissionId, input.submissionId)).orderBy(desc(attachments.createdAt)).limit(1).get();
       if (!attachment?.objectKey) throw new Error("EVIDENCE_NOT_FOUND");
       const object = await evidenceBucket.get(attachment.objectKey);

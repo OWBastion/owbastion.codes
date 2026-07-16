@@ -73,6 +73,8 @@ export const createApp = (dependencies: AppDependencies) => {
   app.options("/v1/auth/logout", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me/titles", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/me/submissions/:submissionId", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/me/submissions/:submissionId/evidence", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/public/achievements", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/__local/accounts", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/__local/login", (c) => { allowPortal(c); return c.body(null, 204); });
@@ -177,6 +179,29 @@ export const createApp = (dependencies: AppDependencies) => {
     const items = await dependencies.services(c.env).listCurrentPlayerTitles({ sessionToken });
     if (!items) return errorResponse(c, 401, "UNAUTHENTICATED", "Authentication is required");
     return c.json({ contractVersion: "1", items });
+  });
+
+  app.get("/v1/me/submissions/:submissionId", async (c) => {
+    const access = await requirePortalPlayer(c);
+    if (access.error) return access.error;
+    try {
+      return c.json(await dependencies.services(c.env).getPlayerSubmission({ submissionId: c.req.param("submissionId") }, access.sessionToken!));
+    } catch (error) {
+      if (error instanceof Error && error.message === "SUBMISSION_NOT_FOUND") return errorResponse(c, 404, "SUBMISSION_NOT_FOUND", "The submission does not exist");
+      throw error;
+    }
+  });
+
+  app.get("/v1/me/submissions/:submissionId/evidence", async (c) => {
+    const access = await requirePortalPlayer(c);
+    if (access.error) return access.error;
+    try {
+      const evidence = await dependencies.services(c.env).getPlayerEvidence({ submissionId: c.req.param("submissionId") }, access.sessionToken!);
+      return new Response(evidence.body, { headers: { "content-type": evidence.contentType, "cache-control": "private, no-store" } });
+    } catch (error) {
+      if (error instanceof Error && ["SUBMISSION_NOT_FOUND", "EVIDENCE_NOT_FOUND"].includes(error.message)) return errorResponse(c, 404, "SUBMISSION_NOT_FOUND", "The submission does not exist");
+      throw error;
+    }
   });
 
   app.post("/v1/auth/logout", async (c) => {

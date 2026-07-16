@@ -20,6 +20,8 @@ const services: PlatformServices = {
   listAdminSubmissions: async () => ({ contractVersion: "1", items: [], hasMore: false }),
   getAdminSubmission: async () => { throw new Error("SUBMISSION_NOT_FOUND"); },
   getAdminEvidence: async () => ({ body: new ArrayBuffer(0), contentType: "image/png" }),
+  getPlayerSubmission: async () => ({ contractVersion: "1", submissionId: "00000000-0000-0000-0000-000000000003", status: "ready_for_review", mapName: "Test Map", createdAt: 1, updatedAt: 2, ocr: { mapName: "Test Map", difficulty: "困难", playerName: "Player", challengeCompleted: true } }),
+  getPlayerEvidence: async () => ({ body: new Uint8Array([1, 2, 3]).buffer, contentType: "image/png" }),
   reviewSubmission: async () => {},
   processOcrJob: async () => {},
   createBinding: async () => ({ contractVersion: "1", bindingId: "00000000-0000-0000-0000-000000000001", identityId: "00000000-0000-0000-0000-000000000002", provider: "qq", groupOpenId: "group-1", memberOpenId: "member-1", playerName: "Player", playerId: "1234" }),
@@ -113,6 +115,30 @@ describe("API", () => {
     const response = await app.request("http://localhost/v1/me/titles", { headers: { cookie: "owb_session=session-token" } }, env);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ contractVersion: "1", items: [{ titleKey: "PIONEER", mapName: "萨摩亚", condition: "完成萨摩亚地狱难度。" }] });
+  });
+
+  it("returns a signed-in player's private submission detail and evidence", async () => {
+    expect((await app.request("http://localhost/v1/me/submissions/00000000-0000-0000-0000-000000000003", {}, env)).status).toBe(401);
+
+    const detail = await app.request("http://localhost/v1/me/submissions/00000000-0000-0000-0000-000000000003", { headers: { cookie: "owb_session=session-token" } }, env);
+    expect(detail.status).toBe(200);
+    expect(await detail.json()).toMatchObject({ status: "ready_for_review", ocr: { mapName: "Test Map", difficulty: "困难", playerName: "Player", challengeCompleted: true } });
+
+    const evidence = await app.request("http://localhost/v1/me/submissions/00000000-0000-0000-0000-000000000003/evidence", { headers: { cookie: "owb_session=session-token" } }, env);
+    expect(evidence.status).toBe(200);
+    expect(evidence.headers.get("content-type")).toBe("image/png");
+    expect(evidence.headers.get("cache-control")).toBe("private, no-store");
+    expect(new Uint8Array(await evidence.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it("does not reveal another player's submission", async () => {
+    const privateApp = createApp({
+      authenticate: auth,
+      services: () => ({ ...services, getPlayerSubmission: async () => { throw new Error("SUBMISSION_NOT_FOUND"); }, getPlayerEvidence: async () => { throw new Error("SUBMISSION_NOT_FOUND"); } }),
+    });
+    const response = await privateApp.request("http://localhost/v1/me/submissions/00000000-0000-0000-0000-000000000003", { headers: { cookie: "owb_session=session-token" } }, env);
+    expect(response.status).toBe(404);
+    expect((await response.json() as { error: { code: string } }).error.code).toBe("SUBMISSION_NOT_FOUND");
   });
 
   it("limits historical title migration to maintainers and requires idempotency", async () => {
