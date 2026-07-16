@@ -44,8 +44,6 @@ defineProps<{
 .admin-table [data-slot="th"], .admin-table [data-slot="td"] { padding: 13px 14px; }
 .admin-table [data-slot="td"] { vertical-align: middle; white-space: normal !important; }
 .admin-table [data-slot="td"] .status-badge { display: inline-flex !important; width: fit-content !important; max-width: 100%; }
-.admin-table [data-slot="tr"][data-selectable="true"] { cursor: pointer; }
-.admin-table [data-slot="tr"][data-selectable="true"]:hover [data-slot="td"] { background: color-mix(in oklch, var(--accent-surface) 42%, var(--surface)); }
 .admin-alert, .admin-feedback { margin: 0; padding: 12px 14px; border-radius: 11px; font-size: .82rem; }
 .admin-alert { color: color-mix(in oklch, var(--danger) 82%, var(--text)); background: color-mix(in oklch, var(--danger) 16%, var(--surface)); }
 .admin-feedback { background: var(--accent-surface); }
