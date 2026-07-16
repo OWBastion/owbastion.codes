@@ -8,5 +8,5 @@ const color = computed(() => ({ default: "neutral", success: "primary", warning:
 <template><UBadge :label="props.label" :color="color" variant="subtle" size="sm" class="status-badge" /></template>
 
 <style scoped>
-.status-badge { min-height: 24px; border: 1px solid var(--line); font-size: .72rem; font-weight: 680; }
+.status-badge { display: inline-flex !important; width: fit-content; min-height: 24px; border: 1px solid var(--line); font-size: .72rem; font-weight: 680; white-space: nowrap; }
 </style>

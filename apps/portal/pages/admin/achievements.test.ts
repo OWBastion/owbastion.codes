@@ -36,7 +36,7 @@ async function mountPage(): Promise<VueWrapper> {
 }
 
 describe("achievement admin page", () => {
-  it("groups generic achievements by series and maps by map without a side panel", async () => {
+  it("renders generic and map achievements in grouped data tables without a side panel", async () => {
     const wrapper = await mountPage();
     expect(wrapper.text()).toContain("通用成就");
     expect(wrapper.text()).toContain("战绩");
@@ -50,7 +50,7 @@ describe("achievement admin page", () => {
 
   it("saves expanded title rules and clears the category override", async () => {
     const wrapper = await mountPage();
-    await wrapper.findAll(".portal-button--secondary")[0].trigger("click");
+    await wrapper.findAll(".portal-button--text").find((button) => button.text() === "编辑规则")!.trigger("click");
     await flushPromises();
     const textareas = wrapper.findAll("textarea");
     await textareas[0].setValue("完成更新后的挑战");
@@ -63,7 +63,7 @@ describe("achievement admin page", () => {
 
   it("plans a sunset in a temporary Nuxt UI popover", async () => {
     const wrapper = await mountPage();
-    const planButton = wrapper.findAll(".portal-button--secondary").find((button) => button.text() === "计划下线")!;
+    const planButton = wrapper.findAll(".portal-button--text").find((button) => button.text() === "计划下线")!;
     await planButton.trigger("click");
     const form = wrapper.find("form.plan-popover");
     await form.find('input[placeholder="例如 26.0713.1"]').setValue("26.0713.1");
