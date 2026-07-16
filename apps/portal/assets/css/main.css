@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
 :root {
   color-scheme: light;
   --page: oklch(96% 0.012 90);
@@ -17,6 +20,18 @@
   --menu-surface: oklch(98% 0.008 90 / 96%);
   --shadow: oklch(20% 0.02 55 / 28%);
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+  --ui-bg: var(--page);
+  --ui-bg-elevated: var(--surface-raised);
+  --ui-bg-accented: var(--accent-surface);
+  --ui-text: var(--text);
+  --ui-text-muted: var(--muted);
+  --ui-text-dimmed: var(--quiet);
+  --ui-border: var(--line);
+  --ui-border-accented: var(--line-strong);
+  --ui-primary: var(--accent);
+  --ui-error: var(--danger);
+  --ui-warning: var(--warning);
+  --ui-radius: 0.7rem;
 }
 
 html[data-theme="dark"] {

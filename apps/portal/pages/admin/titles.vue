@@ -17,8 +17,7 @@ const loading = ref(false);
 const saving = ref(false);
 const selectedHolder = ref<HolderGroup | null>(null);
 const selectedTrigger = ref<HTMLElement | null>(null);
-const closeButton = ref<HTMLButtonElement | null>(null);
-const sheet = ref<HTMLElement | null>(null);
+const panelOpen = computed({ get: () => selectedHolder.value !== null && selectedPlayer.value !== undefined, set: (value) => { if (!value) selectedHolder.value = null; } });
 
 const selectedPlayer = computed(() => players.value.find((player) => player.playerAccountId === selectedPlayerId.value));
 const holderGroups = computed<HolderGroup[]>(() => {
@@ -82,12 +81,7 @@ function openBulk(group: HolderGroup, trigger: EventTarget | null) {
 }
 
 function closeBulk() {
-  const holderName = selectedHolder.value?.holderName;
   selectedHolder.value = null;
-  void nextTick(() => {
-    if (selectedTrigger.value?.isConnected) selectedTrigger.value.focus();
-    else if (holderName) Array.from(document.querySelectorAll<HTMLButtonElement>("button[data-holder-name]")).find((button) => button.dataset.holderName === holderName)?.focus();
-  });
 }
 
 async function grantAll() {
@@ -112,20 +106,7 @@ async function grantAll() {
   }
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape" && selectedHolder.value) closeBulk();
-  if (event.key !== "Tab" || !sheet.value) return;
-  const focusable = Array.from(sheet.value.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
-  const first = focusable.at(0);
-  const last = focusable.at(-1);
-  if (!first || !last) return;
-  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-  if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-}
-
-watch(selectedHolder, (holder) => { if (holder) void nextTick(() => closeButton.value?.focus()); });
-onMounted(() => { void load(); document.addEventListener("keydown", handleKeydown); });
-onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
+onMounted(() => { void load(); });
 </script>
 
 <template>
@@ -135,17 +116,17 @@ onBeforeUnmount(() => document.removeEventListener("keydown", handleKeydown));
     <p v-if="errorMessage" class="alert" role="alert">{{ errorMessage }}</p>
     <p v-if="message" class="feedback" role="status">{{ message }}</p>
 
-    <div class="filters surface-card"><input v-model="query" placeholder="搜索持有者或称号" aria-label="搜索历史称号" @change="load" /><select v-model="selectedPlayerId" aria-label="选择玩家"><option value="">选择玩家帐号</option><option v-for="player in players" :key="player.playerAccountId" :value="player.playerAccountId">{{ player.playerName }}#{{ player.playerId }}</option></select><button class="secondary-button" type="button" @click="load">搜索</button></div>
+    <div class="filters surface-card"><PortalInput v-model="query" placeholder="搜索持有者或称号" aria-label="搜索历史称号" @change="load" /><PortalSelect v-model="selectedPlayerId" aria-label="选择玩家" placeholder="选择玩家帐号" :items="players.map((player) => ({ label: `${player.playerName}#${player.playerId}`, value: player.playerAccountId }))" /><PortalButton tone="secondary" type="button" @click="load">搜索</PortalButton></div>
 
     <div class="holder-list" aria-live="polite">
       <section v-for="group in holderGroups" :key="group.holderName" class="holder-group">
-        <div class="holder-heading"><div><p class="eyebrow">历史持有者</p><h2>{{ group.holderName }}</h2><small>{{ group.unclaimedCount ? `${group.unclaimedCount} 项未关联` : "暂无未关联称号" }}</small></div><button class="primary-button" :data-holder-name="group.holderName" :disabled="!selectedPlayer || !group.unclaimedCount || saving" type="button" @click="openBulk(group, $event.currentTarget)">关联全部未关联项</button></div>
-        <div class="grant-list"><article v-for="row in group.grants" :key="row.grantId" class="grant-row surface-card"><div><p>{{ row.category }}</p><h3>{{ row.label }}<span v-if="row.mapName"> · {{ row.mapName }}</span></h3><small>{{ row.status === "unclaimed" ? "未关联" : row.status === "active" ? `已关联至 ${row.playerName}#${row.playerId}` : "已撤销" }}</small></div><button v-if="row.status === 'unclaimed'" class="secondary-button" :disabled="!selectedPlayer || saving" type="button" @click="grant(row)">关联</button><button v-else-if="row.status === 'active'" class="text-button danger" :disabled="saving" type="button" @click="revoke(row)">撤销</button></article></div>
+        <div class="holder-heading"><div><p class="eyebrow">历史持有者</p><h2>{{ group.holderName }}</h2><small>{{ group.unclaimedCount ? `${group.unclaimedCount} 项未关联` : "暂无未关联称号" }}</small></div><PortalButton :data-holder-name="group.holderName" :disabled="!selectedPlayer || !group.unclaimedCount || saving" type="button" @click="openBulk(group, $event.currentTarget)">关联全部未关联项</PortalButton></div>
+        <div class="grant-list"><article v-for="row in group.grants" :key="row.grantId" class="grant-row surface-card"><div><p>{{ row.category }}</p><h3>{{ row.label }}<span v-if="row.mapName"> · {{ row.mapName }}</span></h3><small>{{ row.status === "unclaimed" ? "未关联" : row.status === "active" ? `已关联至 ${row.playerName}#${row.playerId}` : "已撤销" }}</small></div><PortalButton v-if="row.status === 'unclaimed'" tone="secondary" :disabled="!selectedPlayer || saving" type="button" @click="grant(row)">关联</PortalButton><PortalButton v-else-if="row.status === 'active'" tone="text" :disabled="saving" type="button" @click="revoke(row)">撤销</PortalButton></article></div>
       </section>
       <p v-if="!loading && !holderGroups.length" class="empty surface-card">暂无匹配记录。</p>
     </div>
 
-    <Transition name="migration-sheet"><div v-if="selectedHolder && selectedPlayer" class="sheet-scrim" role="presentation" @click.self="closeBulk"><section ref="sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="bulk-migration-title"><button ref="closeButton" class="sheet-close" type="button" aria-label="关闭" :disabled="saving" @click="closeBulk">×</button><p class="eyebrow">批量关联</p><h2 id="bulk-migration-title">确认称号迁移</h2><div class="migration-facts"><p><span>历史持有者</span><strong>{{ selectedHolder.holderName }}</strong></p><p><span>关联至</span><strong>{{ selectedPlayer.playerName }}#{{ selectedPlayer.playerId }}</strong></p><p><span>范围</span><strong>全部未关联称号</strong></p></div><p class="sheet-copy">已关联和已撤销记录保持不变。</p><div class="sheet-actions"><button class="secondary-button" :disabled="saving" type="button" @click="closeBulk">取消</button><button class="primary-button" :disabled="saving" type="button" @click="grantAll">{{ saving ? "关联中…" : "确认关联" }}</button></div></section></div></Transition>
+    <PortalSidePanel v-model:open="panelOpen" title="确认称号迁移" :return-focus="selectedTrigger"><section v-if="selectedHolder && selectedPlayer" class="sheet"><p class="eyebrow">批量关联</p><h2 id="bulk-migration-title">确认称号迁移</h2><div class="migration-facts"><p><span>历史持有者</span><strong>{{ selectedHolder.holderName }}</strong></p><p><span>关联至</span><strong>{{ selectedPlayer.playerName }}#{{ selectedPlayer.playerId }}</strong></p><p><span>范围</span><strong>全部未关联称号</strong></p></div><p class="sheet-copy">已关联和已撤销记录保持不变。</p><div class="sheet-actions"><PortalButton tone="secondary" :disabled="saving" type="button" @click="closeBulk">取消</PortalButton><PortalButton :loading="saving" type="button" @click="grantAll">确认关联</PortalButton></div></section></PortalSidePanel>
   </main>
 </template>
 

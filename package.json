@@ -26,7 +26,6 @@
     "check": "pnpm run test && pnpm run typecheck && pnpm run build"
   },
   "devDependencies": {
-    "@nuxt/kit": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
     "@vue/test-utils": "^2.4.6",
     "@cloudflare/workers-types": "^5.20260715.1",

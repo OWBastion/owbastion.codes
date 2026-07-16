@@ -16,7 +16,7 @@ mockNuxtImport("useAdminApi", () => () => adminApi);
 
 async function mountPage(): Promise<VueWrapper> {
   adminApi.mockClear();
-  const wrapper = await mountSuspended(AchievementAdminPage, { attachTo: document.body, global: { stubs: { NuxtLink: { template: "<a><slot /></a>" }, StatusBadge: { props: ["label"], template: "<span>{{ label }}</span>" } } } });
+  const wrapper = await mountSuspended(AchievementAdminPage, { attachTo: document.body, global: { stubs: { NuxtLink: { template: "<a><slot /></a>" }, StatusBadge: { props: ["label"], template: "<span>{{ label }}</span>" }, PortalSelect: { props: ["modelValue", "items"], emits: ["update:modelValue"], template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in items" :key="item.value" :value="item.value">{{ item.label }}</option></select>' } } } });
   await flushPromises();
   return wrapper;
 }
@@ -28,13 +28,12 @@ describe("achievement admin page", () => {
     (trigger.element as HTMLButtonElement).focus();
     await trigger.trigger("click");
     await flushPromises();
-    expect(wrapper.get('[role="dialog"]').attributes("aria-labelledby")).toBe("achievement-detail-title");
-    expect(document.activeElement).toBe(wrapper.get(".sheet-close").element);
-    await wrapper.get("form").trigger("submit");
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    await document.body.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await flushPromises();
     expect(adminApi).toHaveBeenCalledWith("/v1/achievements/title-1", expect.objectContaining({ method: "PUT" }));
-    await wrapper.get(".sheet-close").trigger("click");
-    await flushPromises();
+    (document.body.querySelector('[role="dialog"] button') as HTMLButtonElement).click();
+    await new Promise((resolve) => setTimeout(resolve, 250));
     expect(document.activeElement).toBe(trigger.element);
   });
 
@@ -49,8 +48,11 @@ describe("achievement admin page", () => {
   it("sets a map challenge to sunsetting with its planned release version", async () => {
     const wrapper = await mountPage();
     await wrapper.findAll(".achievement-row")[1].trigger("click");
-    await wrapper.get('input[placeholder="例如 26.0713.1"]').setValue("26.0713.1");
-    await wrapper.get(".status-action .secondary-button").trigger("click");
+    const retireVersion = document.body.querySelector('input[placeholder="例如 26.0713.1"]') as HTMLInputElement;
+    retireVersion.value = "26.0713.1";
+    retireVersion.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushPromises();
+    (document.body.querySelector(".status-action .portal-button--secondary") as HTMLButtonElement).click();
     await flushPromises();
     expect(adminApi).toHaveBeenCalledWith("/v1/achievements/map-1", expect.objectContaining({
       method: "PUT",

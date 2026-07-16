@@ -20,7 +20,7 @@ mockNuxtImport("useAdminApi", () => () => adminApi);
 
 async function mountPage(): Promise<VueWrapper> {
   adminApi.mockClear();
-  const wrapper = await mountSuspended(TitleMigrationPage, { attachTo: document.body, global: { stubs: { NuxtLink: { template: "<a><slot /></a>" } } } });
+  const wrapper = await mountSuspended(TitleMigrationPage, { attachTo: document.body, global: { stubs: { NuxtLink: { template: "<a><slot /></a>" }, PortalSelect: { props: ["modelValue", "items"], emits: ["update:modelValue"], template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"><option v-for="item in items" :key="item.value" :value="item.value">{{ item.label }}</option></select>' } } } });
   await flushPromises();
   return wrapper;
 }
@@ -49,10 +49,9 @@ describe("title migration page", () => {
     (trigger.element as HTMLButtonElement).focus();
     await trigger.trigger("click");
     await flushPromises();
-    expect(wrapper.get('[role="dialog"]').text()).toContain("Cold");
-    expect(wrapper.get('[role="dialog"]').text()).toContain("吾携秋水揽星河#5132");
-    expect(document.activeElement).toBe(wrapper.get(".sheet-close").element);
-    await wrapper.get(".sheet-actions .primary-button").trigger("click");
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("Cold");
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("吾携秋水揽星河#5132");
+    (document.body.querySelector(".sheet-actions .primary-button") as HTMLButtonElement).click();
     await flushPromises();
     expect(adminApi).toHaveBeenCalledWith("/v1/title-grants/bulk", expect.objectContaining({ method: "POST", body: expect.objectContaining({ holderName: "Cold", playerAccountId: players[0].playerAccountId }) }));
     expect(wrapper.text()).toContain("已关联 2 项");

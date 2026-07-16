@@ -43,7 +43,7 @@ const saving = ref(false);
 const errorMessage = ref("");
 const actionMessage = ref("");
 const retireVersion = ref("");
-const closeButton = ref<HTMLButtonElement | null>(null);
+const panelOpen = computed({ get: () => selected.value !== null, set: (value) => { if (!value) { selected.value = null; retireVersion.value = ""; } } });
 
 const isTitle = (item: AdminAchievement): item is TitleAchievement => item.family === "achievement";
 const itemName = (item: AdminAchievement) => isTitle(item) ? item.titleName : item.name;
@@ -79,7 +79,6 @@ function open(item: AdminAchievement, trigger: EventTarget | null) {
 function close() {
   selected.value = null;
   retireVersion.value = "";
-  void nextTick(() => selectedTrigger.value?.focus());
 }
 
 function titleUpdate(status: TitleAchievement["status"], retiredVersion?: string) {
@@ -148,7 +147,6 @@ async function save(body: Record<string, unknown> | undefined, message: string) 
 }
 
 watch([type, status], () => { void load(); });
-watch(selected, (item) => { if (item) void nextTick(() => closeButton.value?.focus()); });
 onMounted(() => void load());
 </script>
 
@@ -161,20 +159,20 @@ onMounted(() => void load());
 
     <section class="catalog" aria-labelledby="catalog-title">
       <div class="catalog-heading"><div><h2 id="catalog-title">已登记成就</h2></div><NuxtLink class="migration-link" to="/admin/titles">称号迁移</NuxtLink><span>{{ loading ? "读取中…" : `${items.length} 项` }}</span></div>
-      <div class="filters surface-card"><select v-model="type" aria-label="筛选成就类型"><option value="all">全部类型</option><option value="achievement">称号成就</option><option value="map">地图挑战</option></select><select v-model="status" aria-label="筛选成就状态"><option value="all">全部状态</option><option value="active">已开放</option><option value="sunsetting">即将结束</option><option value="retired">已下线</option></select></div>
+      <div class="filters surface-card"><PortalSelect v-model="type" aria-label="筛选成就类型" :items="[{ label: '全部类型', value: 'all' }, { label: '称号成就', value: 'achievement' }, { label: '地图挑战', value: 'map' }]" /><PortalSelect v-model="status" aria-label="筛选成就状态" :items="[{ label: '全部状态', value: 'all' }, { label: '已开放', value: 'active' }, { label: '即将结束', value: 'sunsetting' }, { label: '已下线', value: 'retired' }]" /></div>
       <div class="achievement-list" aria-live="polite">
         <button v-for="item in items" :key="item.challengeId" class="achievement-row surface-card" type="button" @click="open(item, $event.currentTarget)"><span class="row-copy"><small>{{ typeText(item) }}</small><strong>{{ itemName(item) }}</strong><em v-if="isTitle(item)">{{ item.condition }}</em><em v-else>{{ item.mapName }}<template v-if="item.difficulty"> · {{ item.difficulty }}</template></em></span><span class="row-meta"><StatusBadge :label="statusText(item.status)" :tone="statusTone(item.status)" /><small>{{ versionText(item) }}</small></span></button>
         <p v-if="!loading && !items.length" class="empty surface-card">暂无记录。</p>
       </div>
     </section>
 
-    <Transition name="achievement-sheet"><div v-if="selected" class="sheet-scrim" role="presentation" @click.self="close"><section class="sheet" role="dialog" aria-modal="true" aria-labelledby="achievement-detail-title"><button ref="closeButton" class="sheet-close" type="button" aria-label="关闭" @click="close">×</button><p class="eyebrow">{{ typeText(selected) }}</p><h2 id="achievement-detail-title">{{ itemName(selected) }}</h2><p class="sheet-version">引入版本 {{ selected.introducedVersion }} · {{ versionText(selected) }}</p>
-      <form v-if="isTitle(selected)" class="editor" @submit.prevent="saveTitle"><label>完成条件<textarea v-model="selected.condition" required maxlength="1024" /></label><label>截图规则<textarea v-model="selected.evidenceRule" required maxlength="2048" /></label><label>提交方式<select v-model="selected.submissionMode"><option value="manual">手动提交</option><option value="automatic">自动提交</option></select></label><label>展示分类<input v-model="selected.categoryOverride" :placeholder="selected.category" maxlength="128" /></label><button class="primary-button" :disabled="saving" type="submit">{{ saving ? "保存中…" : "保存规则" }}</button></form>
+    <PortalSidePanel v-model:open="panelOpen" :title="selected ? itemName(selected) : ''" :return-focus="selectedTrigger"><section v-if="selected" class="sheet"><p class="eyebrow">{{ typeText(selected) }}</p><h2 id="achievement-detail-title">{{ itemName(selected) }}</h2><p class="sheet-version">引入版本 {{ selected.introducedVersion }} · {{ versionText(selected) }}</p>
+      <form v-if="isTitle(selected)" class="editor" @submit.prevent="saveTitle"><PortalField label="完成条件" required><PortalTextarea v-model="selected.condition" required maxlength="1024" /></PortalField><PortalField label="截图规则" required><PortalTextarea v-model="selected.evidenceRule" required maxlength="2048" /></PortalField><PortalField label="提交方式"><PortalSelect v-model="selected.submissionMode" :items="[{ label: '手动提交', value: 'manual' }, { label: '自动提交', value: 'automatic' }]" /></PortalField><PortalField label="展示分类"><PortalInput v-model="selected.categoryOverride" :placeholder="selected.category" maxlength="128" /></PortalField><PortalButton :loading="saving" type="submit">保存规则</PortalButton></form>
       <div v-else class="map-facts"><p>{{ selected.mapName }}<template v-if="selected.difficulty"> · {{ selected.difficulty }}</template></p><p>地图、难度和版本由 Bastion 发布快照维护。</p></div>
-      <section v-if="selected.status === 'active'" class="status-action"><h3>即将结束</h3><p>预告期间继续接受截图提交。</p><label>计划下线版本<input v-model="retireVersion" placeholder="例如 26.0713.1" :disabled="saving" /></label><button class="secondary-button" :disabled="saving || !retireVersion.trim()" type="button" @click="startSunsetting">设为即将结束</button></section>
-      <section v-else-if="selected.status === 'sunsetting'" class="status-action"><h3>即将结束 ｜ {{ selected.retiredVersion }}</h3><p>仍接受截图提交；发布对应版本后确认下线。</p><label>计划下线版本<input v-model="retireVersion" placeholder="例如 26.0713.1" :disabled="saving" /></label><div class="status-actions"><button class="secondary-button" :disabled="saving || !retireVersion.trim()" type="button" @click="updateSunsetting">保存版本</button><button class="danger-button" :disabled="saving || !retireVersion.trim()" type="button" @click="retire">确认下线</button><button class="text-button" :disabled="saving" type="button" @click="reopen">恢复开放</button></div></section>
-      <section v-else class="status-action"><h3>已下线 ｜ {{ selected.retiredVersion }}</h3><p>不再接受新的截图提交。</p><button class="secondary-button" :disabled="saving" type="button" @click="reopen">重新开放</button></section>
-    </section></div></Transition>
+      <section v-if="selected.status === 'active'" class="status-action"><h3>即将结束</h3><p>预告期间继续接受截图提交。</p><PortalField label="计划下线版本"><PortalInput v-model="retireVersion" placeholder="例如 26.0713.1" :disabled="saving" /></PortalField><PortalButton tone="secondary" :disabled="saving || !retireVersion.trim()" type="button" @click="startSunsetting">设为即将结束</PortalButton></section>
+      <section v-else-if="selected.status === 'sunsetting'" class="status-action"><h3>即将结束 ｜ {{ selected.retiredVersion }}</h3><p>仍接受截图提交；发布对应版本后确认下线。</p><PortalField label="计划下线版本"><PortalInput v-model="retireVersion" placeholder="例如 26.0713.1" :disabled="saving" /></PortalField><div class="status-actions"><PortalButton tone="secondary" :disabled="saving || !retireVersion.trim()" type="button" @click="updateSunsetting">保存版本</PortalButton><PortalButton tone="danger" :disabled="saving || !retireVersion.trim()" type="button" @click="retire">确认下线</PortalButton><PortalButton tone="text" :disabled="saving" type="button" @click="reopen">恢复开放</PortalButton></div></section>
+      <section v-else class="status-action"><h3>已下线 ｜ {{ selected.retiredVersion }}</h3><p>不再接受新的截图提交。</p><PortalButton tone="secondary" :disabled="saving" type="button" @click="reopen">重新开放</PortalButton></section>
+    </section></PortalSidePanel>
   </main>
 </template>
 

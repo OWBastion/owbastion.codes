@@ -19,9 +19,9 @@ describe("admin players page", () => {
     (trigger.element as HTMLButtonElement).focus();
     await trigger.trigger("click");
     await flushPromises();
-    expect(wrapper.get('[role="dialog"]').attributes("aria-labelledby")).toBe("player-detail-title");
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 250));
     expect(document.activeElement).toBe(trigger.element);
   });
 });

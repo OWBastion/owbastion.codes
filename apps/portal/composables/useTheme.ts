@@ -16,6 +16,7 @@ export function useTheme() {
     if (!import.meta.client) return;
     const root = document.documentElement;
     root.dataset.theme = preference.value;
+    root.classList.toggle("dark", resolvedTheme.value === "dark");
     root.style.colorScheme = resolvedTheme.value;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme.value === "dark" ? "#151a1b" : "#f5f4ef");
   }
