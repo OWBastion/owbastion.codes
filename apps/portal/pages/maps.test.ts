@@ -40,7 +40,7 @@ describe("maps page", () => {
     const wrapper = await mountSuspended(MapsPage);
     await flushPromises();
     expect(wrapper.text()).toContain("萨摩亚");
-    expect(wrapper.text()).toContain("暂无机制");
+    expect(wrapper.text()).not.toContain("暂无机制");
   });
 
   it("opens the mobile detail drawer for the selected map", async () => {
