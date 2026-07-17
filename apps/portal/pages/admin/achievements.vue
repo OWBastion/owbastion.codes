@@ -288,7 +288,6 @@ onMounted(() => void load());
     <template #actions><NuxtLink class="migration-link" to="/admin/titles">称号迁移</NuxtLink></template>
     <template #messages><UAlert v-if="errorMessage" color="error" variant="subtle" :description="errorMessage" /><UAlert v-if="actionMessage" color="primary" variant="subtle" :description="actionMessage" /></template>
     <section class="catalog" aria-labelledby="catalog-title">
-      <div class="catalog-heading"><h2 id="catalog-title">已登记成就</h2></div>
       <UTabs v-model="activeTab" :items="achievementTabs" aria-label="成就类型" class="catalog-tabs">
         <template #generic>
         <section class="catalog-section" aria-labelledby="title-achievements-title">
