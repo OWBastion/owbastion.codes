@@ -7,7 +7,7 @@ import MapsPage from "./maps.vue";
 const currentPlayer = ref<{ player: { playerId: string; playerName: string; bindingStatus: "bound"; isAdmin: boolean }; recentSubmissions: never[] } | null>(null);
 const refreshPlayer = vi.fn(async () => currentPlayer.value);
 const portalApi = vi.fn(async (path: string) => {
-  if (path === "/v1/maps") return { items: [{ mapId: "map.samoa", mapName: "萨摩亚", gameVersion: "26.0713.1" }] };
+  if (path === "/v1/maps") return { items: [{ mapId: "map.samoa", mapName: "萨摩亚", gameVersion: "26.0713.1", difficultyRating: "T3", mechanics: ["动态掩体"] }] };
   if (path === "/v1/challenges?family=map") return { items: [{ challengeId: "map.samoa.hell", family: "map", type: "map_completion", kind: "difficulty_completion", name: "地狱难度通关", mapId: "map.samoa", mapName: "萨摩亚", difficulty: "地狱", gameVersion: "26.0713.1", status: "active" }] };
   throw new Error(`Unexpected request: ${path}`);
 });

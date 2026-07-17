@@ -31,6 +31,7 @@ describe("admin dashboard", () => {
     expect(wrapper.find('a[href="/admin/players"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/admin/channels"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/admin/achievements"]').exists()).toBe(true);
+    expect(wrapper.find('a[href="/admin/maps"]').exists()).toBe(true);
     expect(wrapper.find('a[href="/admin/titles"]').exists()).toBe(true);
   });
 });

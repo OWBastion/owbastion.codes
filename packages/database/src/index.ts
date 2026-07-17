@@ -1,8 +1,8 @@
 import { count, desc, eq, and, gt, like, or, inArray, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { AuthContext, PlatformServices } from "@owbastion/domain";
-import type { AdminChallenge, AdminChallengeUpdateRequest, AdminCatalogTitleUpdateRequest, Challenge, Map, QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, SubmissionRequest, Title } from "@owbastion/contracts";
-import { achievementChallenges, attachments, auditEvents, bindings, historicalTitleGrants, identities, idempotencyKeys, mapTitleRewards, maps, ocrResults, playerAccounts, playerTitleGrants, qqGroupAccess, qqLoginAttempts, qqSessions, submissionReviews, submissions, titleCatalog, titleChallenges, uploadSessions } from "./schema";
+import type { AdminChallenge, AdminChallengeUpdateRequest, AdminCatalogTitleUpdateRequest, AdminMapMetadataUpdateRequest, Challenge, Map, QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, SubmissionRequest, Title } from "@owbastion/contracts";
+import { achievementChallenges, attachments, auditEvents, bindings, historicalTitleGrants, identities, idempotencyKeys, mapMetadata, mapTitleRewards, maps, ocrResults, playerAccounts, playerTitleGrants, qqGroupAccess, qqLoginAttempts, qqSessions, submissionReviews, submissions, titleCatalog, titleChallenges, uploadSessions } from "./schema";
 import { userEvidenceObjectKey } from "./object-key";
 import { matchOcrResult } from "./ocr-match";
 import { assessOcrQuality, type OcrResponse } from "./ocr-response";
@@ -119,9 +119,30 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
   return {
     async listMaps() {
       return withCatalogCache(cache, catalogCacheKey("maps"), async () => {
-        const rows = await db.select().from(maps).where(eq(maps.status, "active")).orderBy(maps.name);
-        return rows.map((row): Map => ({ mapId: row.id, mapName: row.name, gameVersion: row.gameVersion }));
+        const rows = await db.select({ map: maps, metadata: mapMetadata }).from(maps).leftJoin(mapMetadata, eq(mapMetadata.mapId, maps.id)).where(eq(maps.status, "active")).orderBy(maps.name);
+        return rows.map(({ map, metadata }): Map => ({
+          mapId: map.id,
+          mapName: map.name,
+          gameVersion: map.gameVersion,
+          difficultyRating: (metadata?.difficultyRating as Map["difficultyRating"]) ?? null,
+          mechanics: metadata?.mechanicsJson ? JSON.parse(metadata.mechanicsJson) as string[] : [],
+        }));
       });
+    },
+
+    async updateAdminMapMetadata(input: AdminMapMetadataUpdateRequest & { mapId: string }, auth, idempotencyKey) {
+      const replay = await replayOrConflict<Map>(db, auth.subject, "admin.map.metadata.update", idempotencyKey, input);
+      if (replay) return replay;
+      const map = await db.select().from(maps).where(eq(maps.id, input.mapId)).get();
+      if (!map) throw new Error("MAP_NOT_FOUND");
+      const mechanics = [...new Set(input.mechanics.map((value) => value.trim()).filter(Boolean))];
+      const timestamp = now();
+      await db.insert(mapMetadata).values({ mapId: input.mapId, difficultyRating: input.difficultyRating, mechanicsJson: JSON.stringify(mechanics), updatedAt: timestamp, updatedBy: auth.subject }).onConflictDoUpdate({ target: mapMetadata.mapId, set: { difficultyRating: input.difficultyRating, mechanicsJson: JSON.stringify(mechanics), updatedAt: timestamp, updatedBy: auth.subject } });
+      const response: Map = { mapId: map.id, mapName: map.name, gameVersion: map.gameVersion, difficultyRating: input.difficultyRating, mechanics };
+      await recordIdempotency(db, auth.subject, "admin.map.metadata.update", idempotencyKey, input, response);
+      await recordAudit(db, auth, "admin.map.metadata.update", "map_metadata", input.mapId, { difficultyRating: input.difficultyRating, mechanics });
+      await clearCatalogCache(cache);
+      return response;
     },
 
     async listChallenges(input) {

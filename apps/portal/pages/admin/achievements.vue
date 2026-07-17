@@ -27,6 +27,7 @@ type MapAchievement = {
   family: "map";
   type: "map_completion";
   name: string;
+  mapId: string;
   mapName: string;
   difficulty?: string;
   status: AchievementStatus;
@@ -49,7 +50,7 @@ type CatalogTitle = {
   gameVersion: string;
   hasChallenge: false;
 };
-type AdminAchievement = TitleAchievement | MapAchievement | CatalogTitle;
+export type AdminAchievement = TitleAchievement | MapAchievement | CatalogTitle;
 type TableCell<Item> = {
   row: { id: string; original: Item };
   getContext(): { table: { getRowModel(): { rows: Array<{ id: string; original: Item }> } } };

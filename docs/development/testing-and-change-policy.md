@@ -101,7 +101,9 @@ planned Bastion version in `YY.MMDD.N` format; an administrator may also move a
 challenge directly to `retired` without a planned version. Sunsetting challenges
 remain visible and accept new uploads; retired challenges
 block new uploads without altering in-flight or existing submissions. Map
-challenge facts remain immutable. It never creates or issues a title: title
+challenge facts remain immutable; maintainers may update the separate
+platform-owned map metadata layer containing the T0–T5 map rating and mechanism
+tags. It never creates or issues a title: title
 identity and game facts remain Bastion-owned, while historical entitlement
 remains the separate administrator migration flow.
 

@@ -130,9 +130,17 @@ export const mapSchema = z.object({
   mapId: externalId,
   mapName: z.string().trim().min(1).max(256),
   gameVersion: z.string().trim().min(1).max(64),
+  difficultyRating: z.enum(["T0", "T1", "T2", "T3", "T4", "T5"]).nullable(),
+  mechanics: z.array(z.string().trim().min(1).max(64)).max(16),
 });
 
 export const mapListResponseSchema = z.object({ contractVersion, items: z.array(mapSchema) });
+
+export const adminMapMetadataUpdateRequestSchema = z.object({
+  contractVersion,
+  difficultyRating: z.enum(["T0", "T1", "T2", "T3", "T4", "T5"]).nullable(),
+  mechanics: z.array(z.string().trim().min(1).max(64)).max(16),
+});
 
 export const titleSchema = z.object({
   titleKey: externalId,
@@ -360,6 +368,7 @@ export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 export type Challenge = z.infer<typeof challengeSchema>;
 export type Map = z.infer<typeof mapSchema>;
 export type MapListResponse = z.infer<typeof mapListResponseSchema>;
+export type AdminMapMetadataUpdateRequest = z.infer<typeof adminMapMetadataUpdateRequestSchema>;
 export type Title = z.infer<typeof titleSchema>;
 export type TitleListResponse = z.infer<typeof titleListResponseSchema>;
 export type OwnedTitle = z.infer<typeof ownedTitleSchema>;

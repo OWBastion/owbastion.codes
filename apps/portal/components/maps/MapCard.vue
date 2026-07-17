@@ -9,9 +9,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ select: [] }>();
 
-const difficultyRank: Record<string, number> = { 普通: 1, 困难: 2, 专家: 3, 地狱: 4, 传奇: 5 };
 const mapChallenges = computed(() => props.challenges.filter((challenge) => challenge.mapId === props.map.mapId));
-const difficulty = computed(() => Math.max(0, ...mapChallenges.value.map((challenge) => difficultyRank[challenge.difficulty ?? ""] ?? 0)));
 const mapIndex = computed(() => props.map.mapId.split(".").at(-1)?.slice(0, 2).toUpperCase() ?? "地图");
 </script>
 
@@ -21,11 +19,11 @@ const mapIndex = computed(() => props.map.mapId.split(".").at(-1)?.slice(0, 2).t
     <div class="map-card-body">
       <div class="map-card-heading"><h2>{{ map.mapName }}</h2><span>{{ map.gameVersion }}</span></div>
       <dl class="map-card-facts">
-        <div><dt>难度</dt><dd class="difficulty-pips"><UIcon v-for="index in 5" :key="index" name="i-lucide-flame" :class="{ active: index <= difficulty }" aria-hidden="true" /></dd></div>
+        <div><dt>地图评级</dt><dd>{{ map.difficultyRating ?? "暂无记录" }}</dd></div>
         <div><dt>通关难度</dt><dd :class="{ muted: !authenticated }">{{ authenticated ? "未开放" : "登录后查看" }}</dd></div>
         <div><dt>挑战进度</dt><dd class="progress-value">{{ mapChallenges.length ? `${mapChallenges.length} 项挑战` : "暂无记录" }}</dd></div>
       </dl>
-      <div class="map-card-footer"><UBadge v-if="mapChallenges.length" label="挑战目录" color="primary" variant="subtle" /><UBadge label="特殊机制未开放" color="neutral" variant="subtle" /></div>
+      <div class="map-card-footer"><UBadge v-if="mapChallenges.length" label="挑战目录" color="primary" variant="subtle" /><UBadge v-for="mechanic in map.mechanics" :key="mechanic" :label="mechanic" color="neutral" variant="subtle" /><UBadge v-if="!map.mechanics.length" label="暂无机制" color="neutral" variant="subtle" /></div>
     </div>
   </button>
 </template>

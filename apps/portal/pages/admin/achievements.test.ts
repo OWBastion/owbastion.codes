@@ -6,7 +6,7 @@ import AchievementAdminPage from "./achievements.vue";
 const title = { challengeId: "title-1", family: "achievement", type: "title_achievement", titleName: "守望先锋", category: "战绩", categoryOverride: null, condition: "完成挑战", evidenceRule: "完整截图", submissionMode: "manual", status: "active", gameVersion: "3.1.0", introducedVersion: "3.1.0", retiredVersion: null };
 const secondTitle = { ...title, challengeId: "title-2", titleName: "游戏先锋" };
 const catalogTitle = { challengeId: "title.INTERNAL", family: "title_catalog", type: "title_catalog", titleKey: "INTERNAL", titleName: "内部称号", category: "开发保留", condition: "开发/管理用途。", availability: "active", scope: "global", displayKind: "fixed", status: "active", gameVersion: "3.1.0", hasChallenge: false };
-const map = { challengeId: "map-1", family: "map", type: "map_completion", name: "国王大道挑战", mapName: "国王大道", difficulty: "困难", status: "active", gameVersion: "3.0.0", introducedVersion: "3.0.0", retiredVersion: null };
+const map = { challengeId: "map-1", family: "map", type: "map_completion", name: "国王大道挑战", mapId: "map.kings-row", mapName: "国王大道", difficulty: "困难", status: "active", gameVersion: "3.0.0", introducedVersion: "3.0.0", retiredVersion: null };
 const secondMap = { ...map, challengeId: "map-2", name: "国王大道专家挑战" };
 const adminApi = vi.fn((path: string, options?: { method?: string; body?: Record<string, unknown> }) => {
   if (path === "/v1/achievements") return Promise.resolve({ items: [title, secondTitle, catalogTitle, map, secondMap] });

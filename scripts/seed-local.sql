@@ -21,3 +21,7 @@ INSERT OR IGNORE INTO submissions (id, binding_id, status, challenge_type, map_n
   ('00000000-0000-4000-8000-000000000303', '00000000-0000-4000-8000-000000000201', 'evidence_stored', 'map_completion', '渣客镇', 'qq', 'local-test-group', 'local-message-303', 1700000003000, 1700000003000),
   ('00000000-0000-4000-8000-000000000304', '00000000-0000-4000-8000-000000000201', 'ocr_pending', 'map_completion', '努巴尼', 'qq', 'local-test-group', 'local-message-304', 1700000004000, 1700000004000),
   ('00000000-0000-4000-8000-000000000305', '00000000-0000-4000-8000-000000000201', 'resubmission_required', 'map_completion', '艾兴瓦尔德', 'qq', 'local-test-group', 'local-message-305', 1700000005000, 1700000005000);
+
+INSERT OR IGNORE INTO map_metadata (map_id, difficulty_rating, mechanics_json, updated_at, updated_by)
+SELECT id, NULL, '[]', updated_at, 'seed:local'
+FROM maps;

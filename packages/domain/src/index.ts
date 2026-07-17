@@ -23,7 +23,7 @@ import type {
   Map,
   Title,
   OwnedTitle, HistoricalTitleGrant, AdminTitleGrantRequest, AdminTitleGrantBulkRequest, AdminTitleGrantBulkResponse,
-  AdminChallenge, AdminChallengeListResponse, AdminChallengeUpdateRequest,
+  AdminChallenge, AdminChallengeListResponse, AdminChallengeUpdateRequest, AdminMapMetadataUpdateRequest,
   AdminCatalogTitleUpdateRequest,
   PlayerUploadSessionRequest,
   PlayerUploadSessionResponse,
@@ -45,6 +45,7 @@ export type AuthContext = {
 
 export type PlatformServices = {
   listMaps(): Promise<Map[]>;
+  updateAdminMapMetadata(input: AdminMapMetadataUpdateRequest & { mapId: string }, auth: AuthContext, idempotencyKey: string): Promise<Map>;
   listChallenges(input?: { family?: "map" | "achievement" }): Promise<Challenge[]>;
   listTitles(input: { mapId?: string }): Promise<Title[]>;
   listCurrentPlayerTitles(input: { sessionToken: string }): Promise<OwnedTitle[] | null>;
