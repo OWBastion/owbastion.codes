@@ -14,6 +14,7 @@
     "db:seed:local": "bash tools/seed-local.sh",
     "db:import:catalog": "node --experimental-strip-types tools/import-title-catalog.ts",
     "db:generate-title-migration": "node --experimental-strip-types tools/generate-title-catalog-migration.ts",
+    "deploy:api-endpoints": "node --experimental-strip-types tools/deploy-api-endpoints.ts",
     "check:migrations": "bash tools/check-migrations.sh",
     "build:portal": "pnpm --filter @owbastion/portal build",
     "build:api": "pnpm --filter @owbastion/api build",

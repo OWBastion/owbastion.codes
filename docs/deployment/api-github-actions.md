@@ -42,6 +42,7 @@ Configure these repository or production-environment secrets:
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | Worker, D1 migration, and R2 access |
 | `CLOUDFLARE_ACCOUNT_ID` | Target Cloudflare account |
+| `CLOUDFLARE_ZONE_ID` | Zone where API Shield Endpoint Management is configured |
 | `QQBOT_API_TOKEN` | Service credential accepted by the API from QQBot |
 | `ADMIN_BATTLETAG` | Full BattleTag, such as `TestPlayer#1234`, that receives administrator access during deployment |
 
@@ -61,8 +62,18 @@ for the workspace, while the API build runs Wrangler's local Worker bundling
 and validation with `wrangler deploy --dry-run`; it does not upload or deploy
 the Worker. A qualifying push to `main` or a manual dispatch runs those checks,
 applies forward-only remote D1 migrations, validates and bootstraps
-`ADMIN_BATTLETAG`, updates the Worker secret, deploys the Worker, and publishes
-the API URL.
+`ADMIN_BATTLETAG`, updates the Worker secret, deploys the Worker, publishes the
+API URL, and submits the OpenAPI endpoint inventory to Cloudflare API Shield
+Endpoint Management. The API token must also have `Account API Gateway` or
+`Domain API Gateway` write permission. Endpoint deployment is additive and
+idempotent; it does not delete operations already managed in Cloudflare.
+
+The source inventory is [`docs/api/openapi.json`](../api/openapi.json). To run
+the same deployment locally:
+
+~~~bash
+CLOUDFLARE_ZONE_ID=<zone-id> CLOUDFLARE_API_TOKEN=<api-token> pnpm deploy:api-endpoints
+~~~
 
 The workflow refuses to deploy while the D1 ID is still the repository's
 placeholder or while the `CACHE` KV ID is still its placeholder. It does not
