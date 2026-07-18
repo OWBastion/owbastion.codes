@@ -76,14 +76,14 @@ onMounted(() => void load());
     <section aria-label="事件目录">
       <AdminDataTable v-model:global-filter="query" :data="events" :columns="eventColumns" :loading="loading" empty="暂无事件记录。" table-key="events" scroll-height="clamp(18rem, calc(100dvh - 18rem), 42rem)" table-min-width="1180px" class="admin-table">
         <template #filters><div class="flex flex-1 flex-wrap items-center gap-2"><UInput v-model="query" class="min-w-56 flex-1" size="md" aria-label="搜索事件" placeholder="搜索名称、类别或稀有度" icon="i-lucide-search" /><UCheckbox v-model="showArchived" label="包含已归档" /><UButton label="新建事件" icon="i-lucide-plus" @click="openCreate" /><UButton label="导入 CSV" color="neutral" variant="outline" icon="i-lucide-upload" @click="importOpen = !importOpen" /></div></template>
-        <template #name-cell="{ row }"><strong>{{ row.original.name }}</strong></template>
-        <template #description-cell="{ row }"><span>{{ row.original.description }}</span></template>
+        <template #name-cell="{ row }"><strong class="block truncate" :title="row.original.name">{{ row.original.name }}</strong></template>
+        <template #description-cell="{ row }"><span class="line-clamp-2 block" :title="row.original.description">{{ row.original.description }}</span></template>
         <template #category-cell="{ row }"><UBadge :label="row.original.category" :color="categoryColor(row.original.category)" variant="subtle" /></template>
         <template #cooldownSeconds-cell="{ row }"><span>{{ row.original.cooldownSeconds ?? "—" }}</span></template>
         <template #durationSeconds-cell="{ row }"><span>{{ row.original.durationSeconds === null ? "—" : `${row.original.durationSeconds} 秒` }}</span></template>
         <template #weight-cell="{ row }"><span>{{ row.original.weight ?? "—" }}</span></template>
         <template #appearanceProbability-cell="{ row }"><span>{{ probabilityText(row.original.appearanceProbability) }}</span></template>
-        <template #effectTags-cell="{ row }"><span>{{ row.original.effectTags.join("、") || "—" }}</span></template>
+        <template #effectTags-cell="{ row }"><span class="line-clamp-2 block" :title="row.original.effectTags.join('、')">{{ row.original.effectTags.join("、") || "—" }}</span></template>
         <template #releaseStatus-cell="{ row }"><StatusBadge :label="releaseStatusText(row.original.releaseStatus)" :tone="releaseStatusTone(row.original.releaseStatus)" /></template>
         <template #actions-cell="{ row }"><UButton label="编辑" color="neutral" variant="link" @click="openEvent(row.original)" /></template>
       </AdminDataTable>
