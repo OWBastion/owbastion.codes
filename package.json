@@ -16,7 +16,6 @@
     "db:generate-title-migration": "node --experimental-strip-types tools/generate-title-catalog-migration.ts",
     "deploy:api-endpoints": "node --experimental-strip-types tools/deploy-api-endpoints.ts",
     "check:migrations": "bash tools/check-migrations.sh",
-    "check:portal-file-upload": "bash tools/check-portal-file-upload.sh",
     "build:portal": "pnpm --filter @owbastion/portal build",
     "build:api": "pnpm --filter @owbastion/api build",
     "build": "pnpm --recursive --if-present run build",
