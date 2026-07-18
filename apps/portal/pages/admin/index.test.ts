@@ -4,12 +4,17 @@ import { describe, expect, it, vi } from "vitest";
 import AdminDashboard from "./index.vue";
 
 const adminApi = vi.fn((path: string) => {
-  if (path === "/v1/qq/groups") return Promise.resolve({ items: [{ groupOpenId: "group-1", enabled: true }, { groupOpenId: "group-2", enabled: false }] });
-  if (path === "/v1/submissions?status=ready_for_review") return Promise.resolve({ items: [
+  if (path === "/v1/qq/groups") return Promise.resolve({ items: [
+    { groupOpenId: "group-1", environment: "production", enabled: true },
+    { groupOpenId: "group-2", environment: "production", enabled: false },
+    { groupOpenId: "test-group", environment: "test", enabled: true },
+  ] });
+  if (path === "/v1/submissions?status=ready_for_review,ocr_review_required&page=1&pageSize=5") return Promise.resolve({ total: 3, items: [
     { submissionId: "submission-1", mapName: "帕拉伊苏", difficulty: "困难", playerName: "他又", status: "ready_for_review", updatedAt: 0 },
     { submissionId: "submission-2", mapName: "釜山", difficulty: "专家", playerName: "阿澈", status: "ready_for_review", updatedAt: 0 },
   ] });
-  if (path === "/v1/player-accounts?page=1&pageSize=1") return Promise.resolve({ total: 42 });
+  if (path === "/v1/submissions?status=upload_pending,ocr_pending&page=1&pageSize=1") return Promise.resolve({ total: 2, items: [] });
+  if (path === "/v1/player-accounts?status=active&page=1&pageSize=1") return Promise.resolve({ total: 42 });
   throw new Error(`Unexpected request: ${path}`);
 });
 mockNuxtImport("useAdminApi", () => () => adminApi);
@@ -21,9 +26,13 @@ describe("admin dashboard", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("待核对");
-    expect(wrapper.text()).toContain("已开放群组");
-    expect(wrapper.text()).toContain("玩家总数");
-    expect(wrapper.text()).toContain("群组总数");
+    expect(wrapper.text()).toContain("识别处理中");
+    expect(wrapper.text()).toContain("正常玩家");
+    expect(wrapper.text()).toContain("正式群组");
+    expect(wrapper.text()).toContain("3");
+    expect(wrapper.text()).toContain("2");
+    expect(wrapper.text()).toContain("42");
+    expect(wrapper.findAll(".metric-value")[3]?.text()).toBe("1");
     expect(wrapper.text()).toContain("帕拉伊苏");
     expect(wrapper.text()).toContain("等待核对");
     expect(wrapper.find('input[aria-label="搜索玩家"]').exists()).toBe(false);

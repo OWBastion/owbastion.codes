@@ -10,16 +10,18 @@ const groups = ref<AdminGroup[]>([]);
 const submissions = ref<AdminSubmission[]>([]);
 const loading = ref(true);
 const errorMessage = ref("");
-const enabledGroups = computed(() => groups.value.filter((group) => group.enabled).length);
-const totalPlayers = ref(0);
+const activeProductionGroups = computed(() => groups.value.filter((group) => group.environment === "production" && group.enabled).length);
+const reviewTotal = ref(0);
+const processingTotal = ref(0);
+const activePlayerTotal = ref(0);
 const formatTime = (value: number) => new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(value);
 const metrics = computed(() => {
   const value = (count: number) => loading.value ? "读取中…" : `${count}`;
   return [
-    { label: "待核对", value: value(submissions.value.length), detail: "截图提交", tone: "accent" as const },
-    { label: "已开放群组", value: value(enabledGroups.value), detail: "可接收提交", tone: "accent" as const },
-	    { label: "玩家总数", value: value(totalPlayers.value), detail: "已登记账号", tone: "quiet" as const },
-    { label: "群组总数", value: value(groups.value.length), detail: "已登记渠道", tone: "quiet" as const },
+    { label: "待核对", value: value(reviewTotal.value), detail: "等待人工处理", tone: "accent" as const },
+    { label: "识别处理中", value: value(processingTotal.value), detail: "等待识别结果", tone: "accent" as const },
+    { label: "正常玩家", value: value(activePlayerTotal.value), detail: "账号状态正常", tone: "quiet" as const },
+    { label: "正式群组", value: value(activeProductionGroups.value), detail: "已开放接收提交", tone: "quiet" as const },
   ];
 });
 const reviewQueue = computed(() => submissions.value.map((submission) => ({
@@ -33,14 +35,17 @@ const reviewQueue = computed(() => submissions.value.map((submission) => ({
 
 onMounted(async () => {
   try {
-	    const [groupResponse, submissionResponse, playerResponse] = await Promise.all([
+	    const [groupResponse, reviewResponse, processingResponse, playerResponse] = await Promise.all([
 	      api<{ items: AdminGroup[] }>("/v1/qq/groups"),
-	      api<{ items: AdminSubmission[] }>("/v1/submissions?status=ready_for_review"),
-	      api<{ total: number }>("/v1/player-accounts?page=1&pageSize=1"),
+	      api<{ items: AdminSubmission[]; total: number }>("/v1/submissions?status=ready_for_review,ocr_review_required&page=1&pageSize=5"),
+	      api<{ total: number }>("/v1/submissions?status=upload_pending,ocr_pending&page=1&pageSize=1"),
+	      api<{ total: number }>("/v1/player-accounts?status=active&page=1&pageSize=1"),
 	    ]);
 	    groups.value = groupResponse.items;
-	    submissions.value = submissionResponse.items;
-	    totalPlayers.value = playerResponse.total;
+	    submissions.value = reviewResponse.items;
+	    reviewTotal.value = reviewResponse.total;
+	    processingTotal.value = processingResponse.total;
+	    activePlayerTotal.value = playerResponse.total;
   } catch (error: any) {
     errorMessage.value = error?.data?.error?.message ?? "无法读取管理概览，请确认当前账号有管理员权限。";
   } finally {
