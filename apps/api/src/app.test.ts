@@ -15,6 +15,8 @@ const services: PlatformServices = {
   updateAdminMapMetadata: async () => { throw new Error("MAP_NOT_FOUND"); },
   listChallenges: async () => [],
   listTitles: async () => [],
+  uploadAdminTitleIcon: async () => ({ iconUrl: "https://api.example.com/v1/public/achievement-icons/TEST" }),
+  getPublicTitleIcon: async () => null,
   listCurrentPlayerTitles: async ({ sessionToken }) => sessionToken === "session-token" ? [{ grantId: "00000000-0000-0000-0000-000000000006", titleKey: "PIONEER", label: "开拓者", icon: "trophy", category: "社区贡献系列", condition: "完成萨摩亚地狱难度。", scope: "map", mapName: "萨摩亚", slot: "pioneer", grantedAt: 4 }] : null,
   listHistoricalTitleGrants: async () => [],
   createAdminTitleGrant: async () => {},
@@ -232,6 +234,23 @@ describe("API", () => {
     const titleStatus = await adminApp.request("http://localhost/v1/admin/titles/INTERNAL", { method: "PUT", headers: { "content-type": "application/json", "idempotency-key": "title-catalog-1" }, body: JSON.stringify({ contractVersion: "1", status: "retired" }) }, env);
     expect(titleStatus.status).toBe(204);
     expect(catalogUpdates).toMatchObject([{ titleKey: "INTERNAL", status: "retired" }]);
+  });
+
+  it("accepts a maintainer achievement icon upload as multipart data", async () => {
+    const uploads: Array<{ titleKey: string; contentType: string; byteSize: number }> = [];
+    const adminApp = createApp({
+      authenticate: async () => ({ actorType: "user", subject: "admin", roles: ["maintainer"], provider: "test" }),
+      services: () => ({
+        ...services,
+        uploadAdminTitleIcon: async (input) => { uploads.push({ titleKey: input.titleKey, contentType: input.contentType, byteSize: input.body.byteLength }); return { iconUrl: "https://api.example.com/v1/public/achievement-icons/FLAWLESS" }; },
+      }),
+    });
+    const form = new FormData();
+    form.append("file", new File([new Uint8Array([1, 2, 3])], "icon.png", { type: "image/png" }));
+    const response = await adminApp.request("http://localhost/v1/admin/titles/FLAWLESS/icon", { method: "POST", body: form }, env);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ iconUrl: "https://api.example.com/v1/public/achievement-icons/FLAWLESS" });
+    expect(uploads).toEqual([{ titleKey: "FLAWLESS", contentType: "image/png", byteSize: 3 }]);
   });
 
   it("publishes map catalogs while protecting player-only catalogs", async () => {

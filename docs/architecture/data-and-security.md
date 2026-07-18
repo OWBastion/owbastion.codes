@@ -5,7 +5,7 @@
 | Store | Current responsibility |
 | --- | --- |
 | D1 | QQ bindings, player accounts, submissions, upload sessions, attachment metadata, OCR results, review records, idempotency records, audit events, login attempts, sessions, title catalog, achievement challenge rules, map catalog metadata, map title rewards, historical title snapshots, and auditable player title grants |
-| R2 | Private submission evidence when the EVIDENCE_BUCKET binding is configured |
+| R2 | Private submission evidence and isolated public achievement icons when the EVIDENCE_BUCKET binding is configured |
 | Bastion Git and snapshots | Released game content and version history; the platform stores an imported immutable catalog snapshot |
 
 The OCR Queue carries only an opaque submission ID, private object key, and

@@ -3,6 +3,7 @@ export type OwnedTitle = {
   titleKey: string;
   label: string;
   icon: string;
+  iconUrl?: string | null;
   category: string;
   condition: string;
   scope: "global" | "map";

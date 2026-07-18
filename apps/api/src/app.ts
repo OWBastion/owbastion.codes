@@ -39,7 +39,7 @@ type AppDependencies = {
 
 const requestId = (request: Request) => request.headers.get("x-request-id") ?? crypto.randomUUID();
 
-const errorResponse = (c: any, status: 400 | 401 | 403 | 404 | 409 | 422 | 500, code: string, message: string) =>
+const errorResponse = (c: any, status: 400 | 401 | 403 | 404 | 409 | 422 | 500 | 503, code: string, message: string) =>
   c.json({ contractVersion: "1", error: { code, message, requestId: requestId(c.req.raw) } }, status);
 
 const parseBody = async (request: Request) => {
@@ -221,6 +221,15 @@ export const createApp = (dependencies: AppDependencies) => {
     return c.json({ contractVersion: "1", items: await dependencies.services(c.env).listChallenges({ family: "achievement" }) });
   });
 
+  app.get("/v1/public/achievement-icons/:titleKey", async (c) => {
+    allowPortal(c);
+    const icon = await dependencies.services(c.env).getPublicTitleIcon({ titleKey: c.req.param("titleKey") });
+    if (!icon) return errorResponse(c, 404, "ICON_NOT_FOUND", "The achievement icon does not exist");
+    c.header("Cache-Control", "public, max-age=31536000, immutable");
+    if (icon.etag) c.header("ETag", icon.etag);
+    return c.body(icon.body, 200, { "Content-Type": icon.contentType });
+  });
+
   app.get("/v1/challenges", async (c) => {
     const family = c.req.query("family");
     if (family && family !== "map" && family !== "achievement") return errorResponse(c, 422, "INVALID_REQUEST", "The challenge family is invalid");
@@ -361,6 +370,24 @@ export const createApp = (dependencies: AppDependencies) => {
       if (code === "TITLE_NOT_FOUND") return errorResponse(c, 404, code, "The title does not exist");
       if (code === "TITLE_HAS_CHALLENGE") return errorResponse(c, 409, code, "The title has a challenge record");
       if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request");
+      throw error;
+    }
+  });
+
+  app.post("/v1/admin/titles/:titleKey/icon", async (c) => {
+    const access = await requireMaintainer(c);
+    if (access.error) return access.error;
+    try {
+      const form = await c.req.raw.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) return errorResponse(c, 422, "ICON_FILE_REQUIRED", "An icon file is required");
+      const result = await dependencies.services(c.env).uploadAdminTitleIcon({ titleKey: c.req.param("titleKey"), body: await file.arrayBuffer(), contentType: file.type }, access.auth!);
+      return c.json({ contractVersion: "1", ...result });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "ICON_UPLOAD_FAILED";
+      if (code === "TITLE_NOT_FOUND") return errorResponse(c, 404, code, "The title does not exist");
+      if (code === "ICON_FILE_INVALID") return errorResponse(c, 422, code, "仅支持 PNG、JPG、WebP，且文件不能超过 512 KB。");
+      if (code === "ICON_BUCKET_UNAVAILABLE") return errorResponse(c, 503, code, "图标存储暂不可用");
       throw error;
     }
   });

@@ -113,6 +113,7 @@ const achievementChallengeSchema = z.object({
   titleKey: externalId,
   titleName: z.string().trim().min(1).max(256),
   icon: achievementIcon,
+  iconUrl: z.string().url().max(2048).nullable().optional(),
   category: z.string().trim().min(1).max(128),
   condition: z.string().trim().min(1).max(1024),
   evidenceRule: z.string().trim().min(1).max(2048),
@@ -166,6 +167,7 @@ export const titleSchema = z.object({
   titleKey: externalId,
   label: z.string().trim().min(1).max(256),
   icon: achievementIcon,
+  iconUrl: z.string().url().max(2048).nullable().optional(),
   category: z.string().trim().min(1).max(128),
   condition: z.string().trim().min(1).max(1024),
   availability: z.enum(["active", "retired"]),
@@ -180,7 +182,7 @@ export const titleSchema = z.object({
 export const titleListResponseSchema = z.object({ contractVersion, items: z.array(titleSchema) });
 
 export const ownedTitleSchema = z.object({
-  grantId: z.string().uuid(), titleKey: externalId, label: z.string(), icon: achievementIcon, category: z.string(),
+  grantId: z.string().uuid(), titleKey: externalId, label: z.string(), icon: achievementIcon, iconUrl: z.string().url().max(2048).nullable().optional(), category: z.string(),
   condition: z.string().trim().min(1).max(1024), scope: z.enum(["global", "map"]), mapName: z.string().optional(), slot: z.enum(["pioneer", "conqueror", "dominator"]).optional(), grantedAt: z.number().int(),
 });
 export const ownedTitleListResponseSchema = z.object({ contractVersion, items: z.array(ownedTitleSchema) });
@@ -211,6 +213,7 @@ const adminCatalogTitleSchema = z.object({
   titleKey: externalId,
   titleName: z.string().trim().min(1).max(256),
   icon: achievementIcon,
+  iconUrl: z.string().url().max(2048).nullable().optional(),
   category: z.string().trim().min(1).max(128),
   condition: z.string().trim().min(1).max(1024),
   availability: z.enum(["active", "retired"]),

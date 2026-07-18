@@ -14,6 +14,8 @@ const sessionTtlMs = 30 * 24 * 60 * 60 * 1000;
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const uploadTtlMs = 10 * 60 * 1000;
 const maxUploadBytes = 10 * 1024 * 1024;
+const maxTitleIconBytes = 512 * 1024;
+const titleIconContentTypes = new Map([["image/png", "png"], ["image/jpeg", "jpg"], ["image/webp", "webp"]]);
 export const publicTitleChallengeStatus = (status: string, startsAt: number | null, endsAt: number | null, timestamp: number) => {
   if (status !== "scheduled") return status === "active" || status === "sunsetting" ? status : null;
   if (startsAt === null || timestamp < startsAt) return "scheduled";
@@ -257,6 +259,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           titleKey: title.key,
           titleName: title.label,
           icon: title.icon,
+          iconUrl: title.iconUrl,
           category: challenge.categoryOverride ?? title.category,
           condition: challenge.condition,
           evidenceRule: challenge.evidenceRule,
@@ -310,6 +313,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           titleKey: title.key,
           titleName: title.label,
           icon: title.icon,
+          iconUrl: title.iconUrl,
           category: challenge.categoryOverride ?? title.category,
           categoryOverride: challenge.categoryOverride,
           condition: challenge.condition,
@@ -336,6 +340,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           titleKey: title.key,
           titleName: title.label,
           icon: title.icon,
+          iconUrl: title.iconUrl,
           category: title.category,
           condition: title.condition,
           availability: title.availability as "active" | "retired",
@@ -375,7 +380,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
           endsAt: input.status === "scheduled" ? input.endsAt! : null,
           updatedAt: timestamp,
         }).where(eq(titleChallenges.id, row.challenge.id));
-        const response: AdminChallenge = { challengeId: row.challenge.id, family: "achievement", type: "title_achievement", kind: "title_achievement", titleKey: row.title.key, titleName: row.title.label, icon: row.title.icon, category: input.categoryOverride ?? row.title.category, categoryOverride: input.categoryOverride, condition: input.condition, evidenceRule: input.evidenceRule, gameVersion: row.challenge.gameVersion, status: input.status, submissionMode: input.submissionMode, introducedVersion: row.challenge.introducedVersion, retiredVersion: input.status === "sunsetting" ? input.retiredVersion! : null, startsAt: input.status === "scheduled" ? input.startsAt! : null, endsAt: input.status === "scheduled" ? input.endsAt! : null };
+        const response: AdminChallenge = { challengeId: row.challenge.id, family: "achievement", type: "title_achievement", kind: "title_achievement", titleKey: row.title.key, titleName: row.title.label, icon: row.title.icon, iconUrl: row.title.iconUrl, category: input.categoryOverride ?? row.title.category, categoryOverride: input.categoryOverride, condition: input.condition, evidenceRule: input.evidenceRule, gameVersion: row.challenge.gameVersion, status: input.status, submissionMode: input.submissionMode, introducedVersion: row.challenge.introducedVersion, retiredVersion: input.status === "sunsetting" ? input.retiredVersion! : null, startsAt: input.status === "scheduled" ? input.startsAt! : null, endsAt: input.status === "scheduled" ? input.endsAt! : null };
         await recordIdempotency(db, auth.subject, "admin.achievement.update", idempotencyKey, input, response);
         await recordAudit(db, auth, "admin.achievement.update", "challenge", input.challengeId, input);
         await clearCatalogCache(cache);
@@ -395,6 +400,31 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       await clearCatalogCache(cache);
     },
 
+    async uploadAdminTitleIcon(input, auth) {
+      if (!evidenceBucket) throw new Error("ICON_BUCKET_UNAVAILABLE");
+      const extension = titleIconContentTypes.get(input.contentType);
+      if (!extension || input.body.byteLength === 0 || input.body.byteLength > maxTitleIconBytes) throw new Error("ICON_FILE_INVALID");
+      const title = await db.select().from(titleCatalog).where(eq(titleCatalog.key, input.titleKey)).get();
+      if (!title) throw new Error("TITLE_NOT_FOUND");
+      const objectKey = `public/achievement-icons/${encodeURIComponent(input.titleKey)}/${crypto.randomUUID()}.${extension}`;
+      await evidenceBucket.put(objectKey, input.body, { httpMetadata: { contentType: input.contentType, cacheControl: "public, max-age=31536000, immutable" } });
+      const iconUrl = `${uploadOrigin}/v1/public/achievement-icons/${encodeURIComponent(input.titleKey)}`;
+      await db.update(titleCatalog).set({ iconUrl, iconObjectKey: objectKey }).where(eq(titleCatalog.key, input.titleKey));
+      if (title.iconObjectKey) await evidenceBucket.delete(title.iconObjectKey);
+      await recordAudit(db, auth, "admin.title.icon.upload", "title_catalog", input.titleKey, { contentType: input.contentType, byteSize: input.body.byteLength });
+      await clearCatalogCache(cache);
+      return { iconUrl };
+    },
+
+    async getPublicTitleIcon(input) {
+      if (!evidenceBucket) return null;
+      const title = await db.select({ objectKey: titleCatalog.iconObjectKey }).from(titleCatalog).where(eq(titleCatalog.key, input.titleKey)).get();
+      if (!title?.objectKey) return null;
+      const object = await evidenceBucket.get(title.objectKey);
+      if (!object) return null;
+      return { body: object.body, contentType: object.httpMetadata?.contentType ?? "application/octet-stream", etag: object.httpEtag };
+    },
+
     async listTitles(input) {
       return withCatalogCache(cache, catalogCacheKey(`titles:${input.mapId ? encodeURIComponent(input.mapId) : "global"}`), async () => {
       const globalRows = await db.select().from(titleCatalog).where(eq(titleCatalog.scope, "global"));
@@ -402,6 +432,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         titleKey: row.key,
         label: row.label,
         icon: row.icon,
+        iconUrl: row.iconUrl,
         category: row.category,
         condition: row.condition,
         availability: row.availability as Title["availability"],
@@ -418,6 +449,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         titleKey: title.key,
         label: title.label,
         icon: title.icon,
+        iconUrl: title.iconUrl,
         category: title.category,
         condition: title.condition,
         availability: title.availability as Title["availability"],
@@ -439,7 +471,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       const rows = await db.select({ grant: playerTitleGrants, historical: historicalTitleGrants, title: titleCatalog, mapName: maps.name }).from(playerTitleGrants)
         .innerJoin(historicalTitleGrants, eq(playerTitleGrants.historicalTitleGrantId, historicalTitleGrants.id)).innerJoin(titleCatalog, eq(historicalTitleGrants.titleKey, titleCatalog.key)).leftJoin(maps, eq(historicalTitleGrants.mapId, maps.id))
         .where(and(eq(playerTitleGrants.playerAccountId, binding.playerAccountId), eq(playerTitleGrants.status, "active"))).orderBy(desc(playerTitleGrants.grantedAt));
-      return rows.map(({ grant, historical, title, mapName }) => ({ grantId: grant.id, titleKey: title.key, label: title.label, icon: title.icon, category: title.category, condition: title.condition, scope: historical.scope as "global" | "map", mapName: mapName ?? undefined, slot: historical.slot as "pioneer" | "conqueror" | "dominator" | undefined, grantedAt: grant.grantedAt }));
+      return rows.map(({ grant, historical, title, mapName }) => ({ grantId: grant.id, titleKey: title.key, label: title.label, icon: title.icon, iconUrl: title.iconUrl, category: title.category, condition: title.condition, scope: historical.scope as "global" | "map", mapName: mapName ?? undefined, slot: historical.slot as "pioneer" | "conqueror" | "dominator" | undefined, grantedAt: grant.grantedAt }));
     },
 
     async listHistoricalTitleGrants(input) {
@@ -447,7 +479,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       const rows = await db.select({ historical: historicalTitleGrants, grant: playerTitleGrants, title: titleCatalog, mapName: maps.name, player: playerAccounts }).from(historicalTitleGrants)
         .innerJoin(titleCatalog, eq(historicalTitleGrants.titleKey, titleCatalog.key)).leftJoin(maps, eq(historicalTitleGrants.mapId, maps.id)).leftJoin(playerTitleGrants, eq(playerTitleGrants.historicalTitleGrantId, historicalTitleGrants.id)).leftJoin(playerAccounts, eq(playerTitleGrants.playerAccountId, playerAccounts.id))
         .where(query ? or(like(historicalTitleGrants.holderName, query), like(titleCatalog.label, query)) : undefined).orderBy(historicalTitleGrants.holderName).limit(100);
-      return rows.map(({ historical, grant, title, mapName, player }) => ({ grantId: grant?.id ?? historical.id, titleKey: title.key, label: title.label, icon: title.icon, category: title.category, condition: title.condition, scope: historical.scope as "global" | "map", mapName: mapName ?? undefined, slot: historical.slot as "pioneer" | "conqueror" | "dominator" | undefined, grantedAt: grant?.grantedAt ?? 0, holderName: historical.holderName, playerAccountId: grant?.playerAccountId, playerName: player?.playerName, playerId: player?.playerId, status: grant ? grant.status as "active" | "revoked" : "unclaimed", revokeReason: grant?.revokeReason ?? undefined }));
+      return rows.map(({ historical, grant, title, mapName, player }) => ({ grantId: grant?.id ?? historical.id, titleKey: title.key, label: title.label, icon: title.icon, iconUrl: title.iconUrl, category: title.category, condition: title.condition, scope: historical.scope as "global" | "map", mapName: mapName ?? undefined, slot: historical.slot as "pioneer" | "conqueror" | "dominator" | undefined, grantedAt: grant?.grantedAt ?? 0, holderName: historical.holderName, playerAccountId: grant?.playerAccountId, playerName: player?.playerName, playerId: player?.playerId, status: grant ? grant.status as "active" | "revoked" : "unclaimed", revokeReason: grant?.revokeReason ?? undefined }));
     },
 
     async createAdminTitleGrant(input, auth, idempotencyKey) {

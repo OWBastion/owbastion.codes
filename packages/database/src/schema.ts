@@ -69,6 +69,8 @@ export const titleCatalog = sqliteTable("title_catalog", {
   key: text("key").primaryKey(),
   label: text("label").notNull(),
   icon: text("icon").notNull().default("award"),
+  iconUrl: text("icon_url"),
+  iconObjectKey: text("icon_object_key"),
   category: text("category").notNull(),
   condition: text("condition").notNull(),
   availability: text("availability").notNull(),
