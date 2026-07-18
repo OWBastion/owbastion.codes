@@ -65,13 +65,6 @@ onMounted(() => void load());
 <template>
   <AdminWorkspace title="事件管理" :count="loading ? '读取中…' : `${events.length} 条`">
     <template #messages><UAlert v-if="error" color="error" variant="subtle" :description="error" /><UAlert v-if="message" color="primary" variant="subtle" :description="message" /></template>
-    <div class="flex flex-wrap items-center gap-3">
-      <UInput v-model="query" class="min-w-64 flex-1" placeholder="搜索名称、类别或稀有度" icon="i-lucide-search" />
-      <UCheckbox v-model="showArchived" label="包含已归档" />
-      <UButton label="新建事件" icon="i-lucide-plus" @click="openCreate" />
-      <UButton label="导入 CSV" color="neutral" variant="outline" icon="i-lucide-upload" @click="importOpen = !importOpen" />
-    </div>
-
     <UCollapsible v-model:open="importOpen" class="mt-3">
       <template #content>
         <UCard><template #header><div><p class="text-sm font-medium">导入 CSV</p><p class="text-sm text-muted">低频维护操作：先预检，再确认写入。</p></div></template><div class="grid gap-3"><UFileUpload v-model="importFile" accept=".csv,text/csv" label="选择飞书导出的 CSV" /><div class="flex gap-2"><UButton label="预检" color="neutral" variant="outline" :loading="importing" :disabled="!importFile" @click="previewImport" /><UButton v-if="importPreview && !importPreview.errors.length" label="确认导入" :loading="importing" @click="importEvents" /></div><UAlert v-if="importPreview?.errors.length" color="error" variant="subtle" :title="`发现 ${importPreview.errors.length} 个问题`" :description="importPreview.errors.map((item) => `第 ${item.row} 行：${item.message}`).join('；')" /><UAlert v-else-if="importPreview" color="success" variant="subtle" :description="`可导入 ${importPreview.validRowCount} 条事件。`" /></div></UCard>
@@ -80,7 +73,7 @@ onMounted(() => void load());
 
     <section class="mt-4" aria-label="事件目录">
       <AdminDataTable v-model:global-filter="query" :data="events" :columns="eventColumns" :loading="loading" empty="暂无事件记录。" table-key="events" scroll-height="36rem" table-min-width="1180px" class="admin-table">
-        <template #filters><UInput v-model="query" size="md" aria-label="搜索事件" placeholder="搜索名称、类别或稀有度" icon="i-lucide-search" /></template>
+        <template #filters><div class="flex flex-1 flex-wrap items-center gap-2"><UInput v-model="query" class="min-w-56 flex-1" size="md" aria-label="搜索事件" placeholder="搜索名称、类别或稀有度" icon="i-lucide-search" /><UCheckbox v-model="showArchived" label="包含已归档" /><UButton label="新建事件" icon="i-lucide-plus" @click="openCreate" /><UButton label="导入 CSV" color="neutral" variant="outline" icon="i-lucide-upload" @click="importOpen = !importOpen" /></div></template>
         <template #name-cell="{ row }"><strong>{{ row.original.name }}</strong></template>
         <template #description-cell="{ row }"><span>{{ row.original.description }}</span></template>
         <template #cooldownSeconds-cell="{ row }"><span>{{ row.original.cooldownSeconds ?? "—" }}</span></template>
