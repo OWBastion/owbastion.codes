@@ -1,34 +1,41 @@
 <script setup lang="ts">
-import type { NavigationMenuItem } from "@nuxt/ui";
-
 const { player, loaded, refresh, logout } = useCurrentPlayer();
 const loggingOut = ref(false);
+const menuOpen = ref(false);
+const menuButton = ref<HTMLButtonElement | null>(null);
+const menuPanel = ref<HTMLElement | null>(null);
 const route = useRoute();
 const isAdminPage = computed(() => route.path.startsWith("/admin"));
 
-const navigationItems = computed<NavigationMenuItem[]>(() => {
-  if (isAdminPage.value) {
-    return [
-      { label: "概览", to: "/admin", active: route.path === "/admin" },
-      { label: "玩家", to: "/admin/players", active: route.path.startsWith("/admin/players") },
-      { label: "审核", to: "/admin/reviews", active: route.path.startsWith("/admin/reviews") },
-      { label: "渠道", to: "/admin/channels", active: route.path.startsWith("/admin/channels") },
-      { label: "成就", to: "/admin/achievements", active: route.path.startsWith("/admin/achievements") },
-      { label: "地图", to: "/admin/maps", active: route.path.startsWith("/admin/maps") },
-      { label: "事件", to: "/admin/events", active: route.path.startsWith("/admin/events") },
-    ];
-  }
+onMounted(() => { if (!loaded.value) void refresh(); });
 
-  return [
-    { label: "事件", to: "/events", active: route.path.startsWith("/events") },
-    { label: "地图", to: "/maps", active: route.path.startsWith("/maps") },
-    { label: "成就", to: "/achievements", active: route.path.startsWith("/achievements") },
-    { label: "天梯排名", to: "/#rankings", active: route.path === "/" && route.hash === "#rankings" },
-    { label: "轮换挑战", to: "/#rotation", active: route.path === "/" && route.hash === "#rotation" },
-  ];
+function closeMenu(returnFocus = false) {
+  menuOpen.value = false;
+  if (returnFocus) nextTick(() => menuButton.value?.focus());
+}
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+  if (menuOpen.value) nextTick(() => menuPanel.value?.querySelector<HTMLAnchorElement>("a")?.focus());
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (menuOpen.value && !(event.target instanceof Node && menuPanel.value?.parentElement?.contains(event.target))) closeMenu();
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && menuOpen.value) closeMenu(true);
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", handleDocumentPointerDown);
+  document.addEventListener("keydown", handleDocumentKeydown);
 });
 
-onMounted(() => { if (!loaded.value) void refresh(); });
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", handleDocumentPointerDown);
+  document.removeEventListener("keydown", handleDocumentKeydown);
+});
 
 async function signOut() {
   loggingOut.value = true;
@@ -42,72 +49,44 @@ async function signOut() {
 </script>
 
 <template>
-  <div class="app-header-wrap">
-    <UHeader
-      title="躲避堡垒 3 首页"
-      :ui="{
-        root: 'app-header',
-        container: 'app-header-container',
-        left: 'app-header-left',
-        center: 'app-header-center',
-        right: 'app-header-right',
-        title: 'app-header-title',
-        toggle: 'app-header-toggle',
-        body: 'app-header-body',
-      }"
-      :toggle="{ color: 'neutral', variant: 'outline' }"
-    >
-      <template #title>
-        <NuxtLink to="/" class="brand" aria-label="躲避堡垒 3 首页"><span class="brand-mark" aria-hidden="true">O</span><span>躲避堡垒 3</span></NuxtLink>
-      </template>
-
-      <UNavigationMenu class="main-nav" :items="navigationItems" :aria-label="isAdminPage ? '管理导航' : '主导航'" />
-
-      <template #right>
+  <header class="app-header-wrap">
+    <div class="app-header">
+      <NuxtLink to="/" class="brand" aria-label="躲避堡垒 3 首页"><span class="brand-mark" aria-hidden="true">O</span><span>躲避堡垒 3</span></NuxtLink>
+      <nav class="main-nav" :aria-label="isAdminPage ? '管理导航' : '主导航'"><template v-if="isAdminPage"><NuxtLink to="/admin">概览</NuxtLink><NuxtLink to="/admin/players">玩家</NuxtLink><NuxtLink to="/admin/reviews">审核</NuxtLink><NuxtLink to="/admin/channels">渠道</NuxtLink><NuxtLink to="/admin/achievements">成就</NuxtLink><NuxtLink to="/admin/maps">地图</NuxtLink><NuxtLink to="/admin/events">事件</NuxtLink></template><template v-else><NuxtLink to="/events">事件</NuxtLink><NuxtLink to="/maps">地图</NuxtLink><NuxtLink to="/achievements">成就</NuxtLink><NuxtLink to="/#rankings">天梯排名</NuxtLink><NuxtLink to="/#rotation">轮换挑战</NuxtLink></template></nav>
+      <div class="account-actions">
         <ThemeMenu />
         <AccountMenu v-if="player" :player="player.player" @logout="signOut" />
         <NuxtLink v-else to="/login" class="login-link">登录</NuxtLink>
-      </template>
-
-      <template #body>
-        <UNavigationMenu :items="navigationItems" orientation="vertical" class="mobile-nav" :aria-label="isAdminPage ? '移动端管理导航' : '移动端主导航'" />
-      </template>
-    </UHeader>
-  </div>
+      </div>
+      <button ref="menuButton" class="mobile-menu-toggle" type="button" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" :aria-expanded="menuOpen" aria-controls="mobile-nav" @click="toggleMenu"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="!menuOpen" d="M4 7h16M4 12h16M4 17h16" /><path v-else d="M6 6l12 12M18 6L6 18" /></svg></button>
+      <nav v-show="menuOpen" id="mobile-nav" ref="menuPanel" class="mobile-nav" :aria-label="isAdminPage ? '移动端管理导航' : '移动端主导航'"><template v-if="isAdminPage"><NuxtLink to="/admin" @click="closeMenu()">概览</NuxtLink><NuxtLink to="/admin/players" @click="closeMenu()">玩家</NuxtLink><NuxtLink to="/admin/reviews" @click="closeMenu()">审核</NuxtLink><NuxtLink to="/admin/channels" @click="closeMenu()">渠道</NuxtLink><NuxtLink to="/admin/achievements" @click="closeMenu()">成就</NuxtLink><NuxtLink to="/admin/maps" @click="closeMenu()">地图</NuxtLink><NuxtLink to="/admin/events" @click="closeMenu()">事件</NuxtLink></template><template v-else><NuxtLink to="/events" @click="closeMenu()">事件</NuxtLink><NuxtLink to="/maps" @click="closeMenu()">地图</NuxtLink><NuxtLink to="/achievements" @click="closeMenu()">成就</NuxtLink><NuxtLink to="/#rankings" @click="closeMenu()">天梯排名</NuxtLink><NuxtLink to="/#rotation" @click="closeMenu()">轮换挑战</NuxtLink></template></nav>
+    </div>
+  </header>
 </template>
 
 <style scoped>
 .app-header-wrap { position: sticky; z-index: 10; top: 14px; width: min(100% - 28px, 1480px); margin: 0 auto; }
-.app-header { border: 1px solid var(--line); border-radius: 12px; background: var(--header-surface); box-shadow: 0 3px 10px -6px var(--shadow); }
-.app-header-container { min-height: 54px; padding: 0 16px 0 12px; }
-.app-header-left { min-width: 0; gap: 28px; }
-.app-header-center { flex: 1; justify-content: flex-start; }
-.app-header-right { flex: 0 0 auto; gap: 14px; font-size: .78rem; font-weight: 650; }
+.app-header { display: flex; align-items: center; gap: 28px; min-height: 54px; padding: 0 16px 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--header-surface); box-shadow: 0 3px 10px -6px var(--shadow); }
 .brand { display: inline-flex; min-width: 0; align-items: center; gap: 9px; color: var(--text); font-size: .9rem; font-weight: 650; letter-spacing: -.025em; text-decoration: none; white-space: nowrap; }
 .brand > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: var(--on-accent); background: var(--accent); font-size: .92rem; font-weight: 760; }
-.main-nav { color: var(--muted); font-size: .78rem; }
-.main-nav :deep(a) { text-decoration: none; }
+.main-nav { display: flex; flex: 1; justify-content: flex-start; gap: clamp(14px, 2.2vw, 28px); color: var(--muted); font-size: .78rem; }
+.main-nav a { text-decoration: none; transition: color 160ms ease; }
+.main-nav a:hover, .main-nav a.router-link-exact-active { color: var(--text); }
+.account-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 14px; font-size: .78rem; font-weight: 650; }
 .login-link { min-height: 34px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface-raised); text-decoration: none; transition: transform 100ms ease-out, background 160ms ease; }
 .login-link:active { transform: scale(.97); }
-.mobile-nav { padding: 8px 0; }
-
-@media (max-width: 1023px) {
-  .app-header-center { display: flex !important; }
-}
-
+.mobile-menu-toggle, .mobile-nav { display: none; }
 @media (max-width: 760px) {
   .app-header-wrap { top: max(8px, env(safe-area-inset-top)); }
-  .app-header-container { min-height: 52px; padding: 6px 8px 6px 10px; }
-  .app-header-left { gap: 10px; }
-  .app-header-center { display: none !important; }
-  .app-header-right { margin-left: auto; gap: 8px; }
-  .app-header-toggle { width: 40px; height: 40px; }
+  .app-header { position: relative; gap: 10px; min-height: 52px; padding: 6px 8px 6px 10px; }
+  .main-nav { display: none; }
+  .account-actions { margin-left: auto; }
+  .mobile-menu-toggle { display: inline-grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); }
+  .mobile-menu-toggle svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+  .mobile-nav { position: absolute; z-index: 2; inset: calc(100% + 8px) 0 auto; display: grid; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--menu-surface); box-shadow: 0 8px 18px -8px var(--shadow); }
+  .mobile-nav a { display: flex; min-height: 44px; align-items: center; padding: 0 12px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+  .mobile-nav a:hover, .mobile-nav a:focus-visible, .mobile-nav a.router-link-exact-active { color: var(--text); background: var(--surface); }
 }
-
-@media (max-width: 380px) {
-  .app-header-left { gap: 6px; }
-  .brand { gap: 7px; font-size: .82rem; }
-  .brand-mark { width: 26px; height: 26px; }
-}
+@media (max-width: 380px) { .app-header { gap: 6px; }.account-actions { gap: 8px; }.brand { gap: 7px; font-size: .82rem; }.brand-mark { width: 26px; height: 26px; } }
 </style>
