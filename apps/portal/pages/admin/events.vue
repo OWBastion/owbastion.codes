@@ -29,13 +29,18 @@ const form = reactive({ name: "", category: "", rarity: "", description: "", dur
 const selectedLinks = computed(() => new Set(form.links.map((link) => `${link.family}:${link.challengeId}`)));
 const releaseStatusText = (status: RandomEvent["releaseStatus"]) => status === "implemented" ? "已实装" : status === "removed" ? "已移除" : "开发中";
 const releaseStatusTone = (status: RandomEvent["releaseStatus"]) => status === "implemented" ? "success" : status === "removed" ? "default" : "warning";
+const probabilityText = (value: number | null) => value === null ? "—" : `${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value * 100)}%`;
 const eventColumns: TableColumn<RandomEvent>[] = [
-  { accessorKey: "name", header: "事件" },
-  { accessorKey: "category", header: "类别" },
-  { accessorKey: "rarity", header: "稀有度" },
-  { accessorKey: "durationSeconds", header: "持续时间" },
+  { accessorKey: "name", header: "事件名称" },
+  { accessorKey: "description", header: "事件效果" },
+  { accessorKey: "category", header: "事件类别" },
+  { accessorKey: "rarity", header: "稀有度级别" },
+  { accessorKey: "cooldownSeconds", header: "内置冷却" },
+  { accessorKey: "durationSeconds", header: "持续时间（秒）" },
   { accessorKey: "weight", header: "权重" },
+  { accessorKey: "appearanceProbability", header: "最终出现概率" },
   { accessorKey: "gameVersion", header: "版本" },
+  { accessorKey: "effectTags", header: "效果类型" },
   { accessorKey: "releaseStatus", header: "状态" },
   { id: "actions", header: "操作", enableHiding: false },
 ];
@@ -74,11 +79,15 @@ onMounted(() => void load());
     </UCollapsible>
 
     <section class="mt-4" aria-label="事件目录">
-      <AdminDataTable v-model:global-filter="query" :data="events" :columns="eventColumns" :loading="loading" empty="暂无事件记录。" table-key="events" scroll-height="36rem" class="admin-table">
+      <AdminDataTable v-model:global-filter="query" :data="events" :columns="eventColumns" :loading="loading" empty="暂无事件记录。" table-key="events" scroll-height="36rem" table-min-width="1720px" class="admin-table">
         <template #filters><UInput v-model="query" size="md" aria-label="搜索事件" placeholder="搜索名称、类别或稀有度" icon="i-lucide-search" /></template>
-        <template #name-cell="{ row }"><strong>{{ row.original.name }}</strong><small class="text-muted">{{ row.original.description }}</small></template>
+        <template #name-cell="{ row }"><strong>{{ row.original.name }}</strong></template>
+        <template #description-cell="{ row }"><span>{{ row.original.description }}</span></template>
+        <template #cooldownSeconds-cell="{ row }"><span>{{ row.original.cooldownSeconds ?? "—" }}</span></template>
         <template #durationSeconds-cell="{ row }"><span>{{ row.original.durationSeconds === null ? "—" : `${row.original.durationSeconds} 秒` }}</span></template>
         <template #weight-cell="{ row }"><span>{{ row.original.weight ?? "—" }}</span></template>
+        <template #appearanceProbability-cell="{ row }"><span>{{ probabilityText(row.original.appearanceProbability) }}</span></template>
+        <template #effectTags-cell="{ row }"><span>{{ row.original.effectTags.join("、") || "—" }}</span></template>
         <template #releaseStatus-cell="{ row }"><StatusBadge :label="releaseStatusText(row.original.releaseStatus)" :tone="releaseStatusTone(row.original.releaseStatus)" /></template>
         <template #actions-cell="{ row }"><UButton label="编辑" color="neutral" variant="link" @click="openEvent(row.original)" /></template>
       </AdminDataTable>

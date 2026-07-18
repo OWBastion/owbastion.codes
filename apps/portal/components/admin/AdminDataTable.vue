@@ -8,6 +8,7 @@ type Props = {
   loading?: boolean;
   manualFiltering?: boolean;
   scrollHeight?: string;
+  tableMinWidth?: string;
   tableKey: string;
   resetScrollKey?: string | number;
 };
@@ -16,6 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false,
   manualFiltering: false,
   scrollHeight: undefined,
+  tableMinWidth: undefined,
   resetScrollKey: undefined,
 });
 
@@ -51,7 +53,7 @@ watch(() => props.resetScrollKey, () => {
 </script>
 
 <template>
-  <div class="admin-data-table">
+  <div class="admin-data-table" :style="props.tableMinWidth ? { '--admin-table-min-width': props.tableMinWidth } : undefined">
     <div class="admin-data-table__controls">
       <div v-if="$slots.filters" class="admin-data-table__filters"><slot name="filters" /></div>
       <UDropdownMenu :items="columnMenuItems" :content="{ align: 'end' }">
@@ -84,7 +86,7 @@ watch(() => props.resetScrollKey, () => {
 .admin-data-table__filters { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .admin-data-table__scroll { overflow: auto; }
 .admin-data-table__scroll--bounded { overscroll-behavior: contain; }
-.admin-data-table :deep(table[data-slot="base"]) { width: 100%; table-layout: fixed; }
+.admin-data-table :deep(table[data-slot="base"]) { width: 100%; min-width: var(--admin-table-min-width, 0); table-layout: fixed; }
 .admin-data-table :deep([data-slot="th"]) { color: var(--quiet); font-size: .72rem; font-weight: 700; letter-spacing: .025em; }
 .admin-data-table :deep([data-slot="th"]), .admin-data-table :deep([data-slot="td"]) { padding: 13px 14px; }
 .admin-data-table :deep([data-slot="td"]) { vertical-align: middle; white-space: normal !important; }
