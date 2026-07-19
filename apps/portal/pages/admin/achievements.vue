@@ -191,8 +191,11 @@ function titleUpdate(item: TitleAchievement, status: AchievementStatus = item.st
     categoryOverride: item.categoryOverride?.trim() || null,
     iconUrl: item.iconUrl?.trim() || null,
     status,
-    ...(status === "sunsetting" ? { retiredVersion: retiredVersion ?? item.retiredVersion ?? "" } : {}),
-    ...(status === "scheduled" ? { startsAt: item.startsAt ?? 0, endsAt: item.endsAt ?? 0 } : {}),
+    ...(status === "sunsetting" && (retiredVersion ?? item.retiredVersion)?.trim() ? { retiredVersion: (retiredVersion ?? item.retiredVersion)!.trim() } : {}),
+    ...(status === "scheduled" ? {
+      ...(item.startsAt && item.startsAt > 0 ? { startsAt: item.startsAt } : {}),
+      ...(item.endsAt && item.endsAt > 0 ? { endsAt: item.endsAt } : {}),
+    } : {}),
   };
 }
 
@@ -222,8 +225,11 @@ async function saveCatalogTitle(item: CatalogTitle, status: AchievementStatus, i
           submissionMode: item.submissionMode ?? "manual",
           categoryOverride: item.categoryOverride?.trim() || null,
           iconUrl: item.iconUrl?.trim() || null,
-          ...(status === "sunsetting" ? { retiredVersion: item.retiredVersion?.trim() || "" } : {}),
-          ...(status === "scheduled" ? { startsAt: item.startsAt ?? 0, endsAt: item.endsAt ?? 0 } : {}),
+          ...(status === "sunsetting" && item.retiredVersion?.trim() ? { retiredVersion: item.retiredVersion.trim() } : {}),
+          ...(status === "scheduled" ? {
+            ...(item.startsAt && item.startsAt > 0 ? { startsAt: item.startsAt } : {}),
+            ...(item.endsAt && item.endsAt > 0 ? { endsAt: item.endsAt } : {}),
+          } : {}),
         } : {}),
       },
     });

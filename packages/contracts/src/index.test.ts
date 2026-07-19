@@ -37,23 +37,29 @@ describe("v1 platform contracts", () => {
     expect(adminSubmissionReviewRequestSchema.safeParse({ contractVersion: "1", decision: "rejected", reason: "" }).success).toBe(false);
   });
 
-  it("requires a current-format Bastion version only when sunsetting an achievement", () => {
+  it("validates achievement update fields without requiring optional lifecycle metadata", () => {
     const input = { contractVersion: "1", family: "achievement", condition: "完成挑战", evidenceRule: "完整截图", submissionMode: "manual", categoryOverride: null, status: "retired" };
     expect(adminChallengeUpdateRequestSchema.safeParse(input).success).toBe(true);
     expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, iconUrl: "https://cdn.example.com/icon.webp" }).success).toBe(true);
     expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, iconUrl: "not-a-url" }).success).toBe(false);
     expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, retiredVersion: "26.0713.1" }).success).toBe(true);
-    expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, status: "sunsetting" }).success).toBe(false);
+    expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, status: "sunsetting" }).success).toBe(true);
     expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, status: "sunsetting", retiredVersion: "26.0713.2" }).success).toBe(true);
     expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, retiredVersion: "2026.07.16" }).success).toBe(false);
     expect(adminChallengeUpdateRequestSchema.safeParse({ contractVersion: "1", family: "map", status: "retired" }).success).toBe(true);
   });
 
-  it("requires a complete time window for scheduled title challenges", () => {
+  it("accepts null optional fields from an admin response when editing a challenge", () => {
+    const title = { contractVersion: "1", family: "achievement", condition: "完成挑战", evidenceRule: "完整截图", submissionMode: "manual", categoryOverride: null, iconUrl: null, status: "active", retiredVersion: null, startsAt: null, endsAt: null };
+    expect(adminChallengeUpdateRequestSchema.safeParse(title).success).toBe(true);
+    expect(adminChallengeUpdateRequestSchema.safeParse({ contractVersion: "1", family: "map", status: "active", retiredVersion: null }).success).toBe(true);
+  });
+
+  it("accepts scheduled title challenges without a time window", () => {
     const input = { contractVersion: "1", family: "achievement", condition: "完成挑战", evidenceRule: "完整截图", submissionMode: "manual", categoryOverride: null, status: "scheduled", startsAt: 2_000, endsAt: 3_000 };
     expect(adminChallengeUpdateRequestSchema.safeParse(input).success).toBe(true);
     expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, endsAt: 1_000 }).success).toBe(false);
-    expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, endsAt: undefined }).success).toBe(false);
+    expect(adminChallengeUpdateRequestSchema.safeParse({ ...input, startsAt: undefined, endsAt: undefined }).success).toBe(true);
   });
 
   it("validates complete catalog-title challenge edits", () => {

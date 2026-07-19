@@ -11,6 +11,8 @@ const playableChallengeStatus = z.enum(["active", "sunsetting"]);
 const titleChallengeStatus = z.enum(["scheduled", "active", "sunsetting", "retired"]);
 const scheduleTimestamp = z.number().int().positive();
 const achievementIcon = z.string().trim().regex(/^[a-z0-9-]+$/).max(64);
+const optionalRetirementVersion = z.preprocess((value) => value === null ? undefined : value, retirementVersion.optional());
+const optionalScheduleTimestamp = z.preprocess((value) => value === null ? undefined : value, scheduleTimestamp.optional());
 
 export const qqBindingRequestSchema = z.object({
   contractVersion,
@@ -230,9 +232,8 @@ const adminMapChallengeUpdateSchema = z.object({
   contractVersion,
   family: z.literal("map"),
   status: challengeStatus,
-  retiredVersion: retirementVersion.optional(),
+  retiredVersion: optionalRetirementVersion,
 }).superRefine((value, ctx) => {
-  if (value.status === "sunsetting" && !value.retiredVersion) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["retiredVersion"], message: "A retirement version is required" });
   if (value.status === "active" && value.retiredVersion !== undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["retiredVersion"], message: "An active challenge cannot have a retired version" });
 });
 const adminAchievementChallengeUpdateSchema = z.object({
@@ -244,14 +245,11 @@ const adminAchievementChallengeUpdateSchema = z.object({
   categoryOverride: z.string().trim().min(1).max(128).nullable(),
   iconUrl: z.string().trim().url().max(2048).nullable().optional(),
   status: titleChallengeStatus,
-  retiredVersion: retirementVersion.optional(),
-  startsAt: scheduleTimestamp.optional(),
-  endsAt: scheduleTimestamp.optional(),
+  retiredVersion: optionalRetirementVersion,
+  startsAt: optionalScheduleTimestamp,
+  endsAt: optionalScheduleTimestamp,
 }).superRefine((value, ctx) => {
-  if (value.status === "sunsetting" && !value.retiredVersion) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["retiredVersion"], message: "A retirement version is required" });
   if (value.status === "active" && value.retiredVersion !== undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["retiredVersion"], message: "An active challenge cannot have a retired version" });
-  if (value.status === "scheduled" && value.startsAt === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startsAt"], message: "A scheduled challenge requires a start time" });
-  if (value.status === "scheduled" && value.endsAt === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endsAt"], message: "A scheduled challenge requires an end time" });
   if (value.startsAt !== undefined && value.endsAt !== undefined && value.endsAt <= value.startsAt) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endsAt"], message: "The end time must be after the start time" });
   if (value.status !== "scheduled" && (value.startsAt !== undefined || value.endsAt !== undefined)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startsAt"], message: "Only scheduled challenges may have a time window" });
 });
@@ -264,13 +262,10 @@ export const adminCatalogTitleUpdateRequestSchema = z.object({
   submissionMode: z.enum(["manual", "automatic"]).optional(),
   categoryOverride: z.string().trim().min(1).max(128).nullable().optional(),
   iconUrl: z.string().trim().url().max(2048).nullable().optional(),
-  retiredVersion: retirementVersion.optional(),
-  startsAt: scheduleTimestamp.optional(),
-  endsAt: scheduleTimestamp.optional(),
+  retiredVersion: optionalRetirementVersion,
+  startsAt: optionalScheduleTimestamp,
+  endsAt: optionalScheduleTimestamp,
 }).superRefine((value, ctx) => {
-  if (value.status === "sunsetting" && !value.retiredVersion) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["retiredVersion"], message: "A retirement version is required" });
-  if (value.status === "scheduled" && value.startsAt === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startsAt"], message: "A scheduled challenge requires a start time" });
-  if (value.status === "scheduled" && value.endsAt === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endsAt"], message: "A scheduled challenge requires an end time" });
   if (value.startsAt !== undefined && value.endsAt !== undefined && value.endsAt <= value.startsAt) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endsAt"], message: "The end time must be after the start time" });
   if (value.status !== "scheduled" && (value.startsAt !== undefined || value.endsAt !== undefined)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startsAt"], message: "Only scheduled challenges may have a time window" });
 });
