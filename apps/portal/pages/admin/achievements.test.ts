@@ -53,6 +53,7 @@ describe("achievement admin page", () => {
     expect(wrapper.text()).not.toContain("国王大道");
     expect(wrapper.find(".portal-side-panel").exists()).toBe(false);
     expect(wrapper.findAll('button[aria-label="编辑规则"]')).toHaveLength(2);
+    expect(wrapper.findAll('button[aria-label="编辑状态"]')).toHaveLength(1);
     expect(wrapper.findAll('button[aria-label="计划下线"]')).toHaveLength(2);
     expect(wrapper.findAll('button[aria-label="结束挑战"]')).toHaveLength(2);
     expect(wrapper.findAll("button").some((button) => button.text() === "管理")).toBe(false);
@@ -71,6 +72,16 @@ describe("achievement admin page", () => {
     expect(wrapper.findAll('td[rowspan="2"]')).toHaveLength(1);
     expect(wrapper.find('td[rowspan="2"]').text()).toBe("国王大道");
     expect(wrapper.findAll("td.hidden")).toHaveLength(1);
+  });
+
+  it("opens status editing for catalog titles regardless of their lifecycle status", async () => {
+    const wrapper = await mountPage();
+    await wrapper.get('button[aria-label="编辑状态"]').trigger("click");
+    await flushPromises();
+    expect(wrapper.find("form.editor").exists()).toBe(true);
+    await wrapper.get("form.editor").trigger("submit");
+    await flushPromises();
+    expect(adminApi).toHaveBeenCalledWith("/v1/titles/INTERNAL", expect.objectContaining({ method: "PUT", body: expect.objectContaining({ status: "active" }) }));
   });
 
   it("saves expanded title rules and clears the category override", async () => {
