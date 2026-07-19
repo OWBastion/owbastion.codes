@@ -24,6 +24,7 @@ describe("MyAchievementOverview", () => {
     expect(wrapper.find(".progress-ring").attributes("aria-label")).toBe("成就完成率 100%");
     expect(wrapper.find(".achievement-icon.has-image").exists()).toBe(true);
     expect(wrapper.find(".earned-status-icon").text()).toBe("");
+    expect(wrapper.findAll(".summary-icon")).toHaveLength(3);
   });
 
   it("shows the factual empty state for a player without titles", async () => {
