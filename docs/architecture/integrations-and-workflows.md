@@ -152,6 +152,10 @@ pending group to `active`; this atomically makes the previous active group
 platform-owned group and command-policy snapshot at startup and on the
 configured refresh interval; it keeps the last successful snapshot when a
 later refresh fails and fails closed before the first successful snapshot.
+Because QQ does not provide a reliable group name through the channel
+interface, maintainers may store a platform-owned display name/label and the
+group environment in the Portal. The stable QQ group OpenID remains the
+integration identifier.
 
 An authenticated player whose session belongs to a legacy group can generate a
 short-lived `/验证` code in the Portal. The code is target-bound to the active

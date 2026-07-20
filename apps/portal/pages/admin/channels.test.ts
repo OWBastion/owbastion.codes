@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import ChannelsPage from "./channels.vue";
 
 const adminApi = vi.fn((path: string) => {
-  if (path === "/v1/qq/groups") return Promise.resolve({ items: [{ groupOpenId: "group-1", environment: "test", status: "pending", bindEnabled: false, verifyEnabled: false, updatedAt: 0 }] });
+  if (path === "/v1/qq/groups") return Promise.resolve({ items: [{ groupOpenId: "group-1", displayName: "", environment: "test", status: "pending", bindEnabled: false, verifyEnabled: false, updatedAt: 0 }] });
   if (path === "/v1/qq/groups/group-1") return Promise.resolve();
   throw new Error(`Unexpected request: ${path}`);
 });

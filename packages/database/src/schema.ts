@@ -242,6 +242,7 @@ export const auditEvents = sqliteTable("audit_events", {
 
 export const qqGroupAccess = sqliteTable("qq_group_access", {
   groupOpenId: text("group_open_id").primaryKey(),
+  displayName: text("display_name").notNull().default(""),
   environment: text("environment").notNull(),
   status: text("status").notNull().default("pending"),
   bindEnabled: integer("bind_enabled").notNull().default(0),

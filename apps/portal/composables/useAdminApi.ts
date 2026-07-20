@@ -12,7 +12,7 @@ export type AdminPlayerDetail = AdminPlayer & {
   recentSubmissions: Array<{ submissionId: string; status: string; mapName: string; createdAt: number; updatedAt: number }>;
 };
 
-export type AdminGroup = { groupOpenId: string; environment: "production" | "test"; status: "pending" | "active" | "legacy" | "disconnected"; bindEnabled: boolean; verifyEnabled: boolean; updatedAt: number };
+export type AdminGroup = { groupOpenId: string; displayName: string; environment: "production" | "test"; status: "pending" | "active" | "legacy" | "disconnected"; bindEnabled: boolean; verifyEnabled: boolean; updatedAt: number };
 export type AdminSubmission = { submissionId: string; status: string; challengeId: string; mapName: string; difficulty: string; playerName: string; createdAt: number; updatedAt: number; ocr: Record<string, unknown> | null; evidenceUrl: string | null };
 
 export function useAdminApi() {

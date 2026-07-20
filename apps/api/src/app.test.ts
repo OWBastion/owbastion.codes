@@ -112,10 +112,10 @@ describe("API", () => {
   it("requires idempotency for administrator group configuration", async () => {
     const updates: Array<{ input: unknown; key: string }> = [];
     const adminApp = createApp({ authenticate: async () => ({ actorType: "user" as const, subject: "admin", roles: ["maintainer"], provider: "test" }), services: () => ({ ...services, upsertQqGroupAccess: async (input, _auth, key) => { updates.push({ input, key }); } }) });
-    const body = JSON.stringify({ contractVersion: "1", environment: "production", status: "active", bindEnabled: true, verifyEnabled: true });
+    const body = JSON.stringify({ contractVersion: "1", displayName: "主群", environment: "production", status: "active", bindEnabled: true, verifyEnabled: true });
     expect((await adminApp.request("http://localhost/v1/admin/qq/groups/group-1", { method: "PUT", headers: { "content-type": "application/json" }, body }, env)).status).toBe(422);
     expect((await adminApp.request("http://localhost/v1/admin/qq/groups/group-1", { method: "PUT", headers: { "content-type": "application/json", "idempotency-key": "group-update-1" }, body }, env)).status).toBe(204);
-    expect(updates).toEqual([{ input: { contractVersion: "1", groupOpenId: "group-1", environment: "production", status: "active", bindEnabled: true, verifyEnabled: true }, key: "group-update-1" }]);
+    expect(updates).toEqual([{ input: { contractVersion: "1", groupOpenId: "group-1", displayName: "主群", environment: "production", status: "active", bindEnabled: true, verifyEnabled: true }, key: "group-update-1" }]);
   });
 
   it("returns only public submission status fields", async () => {
