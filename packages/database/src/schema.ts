@@ -243,7 +243,9 @@ export const auditEvents = sqliteTable("audit_events", {
 export const qqGroupAccess = sqliteTable("qq_group_access", {
   groupOpenId: text("group_open_id").primaryKey(),
   environment: text("environment").notNull(),
-  enabled: integer("enabled").notNull(),
+  status: text("status").notNull().default("pending"),
+  bindEnabled: integer("bind_enabled").notNull().default(0),
+  verifyEnabled: integer("verify_enabled").notNull().default(0),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -253,6 +255,9 @@ export const qqLoginAttempts = sqliteTable("qq_login_attempts", {
   tokenHash: text("token_hash").notNull(),
   codeHash: text("code_hash").notNull(),
   status: text("status").notNull(),
+  purpose: text("purpose").notNull().default("login"),
+  playerAccountId: text("player_account_id"),
+  targetGroupOpenId: text("target_group_open_id"),
   groupOpenId: text("group_open_id"),
   memberOpenId: text("member_open_id"),
   environment: text("environment"),

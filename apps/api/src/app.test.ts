@@ -40,9 +40,11 @@ const services: PlatformServices = {
   createSubmission: async () => ({ contractVersion: "1", submissionId: "00000000-0000-0000-0000-000000000003", status: "evidence_pending", mapName: "Test Map", attachmentIds: ["00000000-0000-0000-0000-000000000004"] }),
   getSubmission: async () => ({ contractVersion: "1", submissionId: "00000000-0000-0000-0000-000000000003", status: "ocr_pending", mapName: "Test Map", createdAt: 1, updatedAt: 1 }),
   createQqLoginAttempt: async () => ({ contractVersion: "1", attemptId: "00000000-0000-0000-0000-000000000005", attemptToken: "a".repeat(64), code: "ABC234", expiresAt: 1 }),
+  createQqGroupIdentityVerification: async () => ({ contractVersion: "1", attemptId: "00000000-0000-0000-0000-000000000005", attemptToken: "a".repeat(64), code: "ABC234", expiresAt: 1, targetGroupStatus: "active" }),
   getQqLoginStatus: async () => ({ contractVersion: "1", status: "pending" }),
-  verifyQqLogin: async () => ({ contractVersion: "1", status: "verified", environment: "test" }),
+verifyQqLogin: async () => ({ contractVersion: "1", status: "verified", environment: "test", purpose: "login" }),
   upsertQqGroupAccess: async () => {},
+  registerQqGroup: async () => {},
   listQqGroupAccess: async () => [],
   listAdminPlayers: async () => ({ contractVersion: "1" as const, items: [], page: 1, pageSize: 25, total: 0, hasMore: false }),
   getAdminPlayer: async () => { throw new Error("PLAYER_NOT_FOUND"); },
@@ -51,6 +53,7 @@ const services: PlatformServices = {
   getCurrentPlayer: async ({ sessionToken }) => sessionToken === "session-token" ? {
     contractVersion: "1",
     player: { playerId: "1234", playerName: "Player", bindingStatus: "bound", isAdmin: false },
+    groupIdentityStatus: "active",
     recentSubmissions: [{ submissionId: "00000000-0000-0000-0000-000000000003", status: "ocr_pending", mapName: "Test Map", createdAt: 2, updatedAt: 3 }],
   } : null,
   logoutPortalSession: async () => {},
@@ -131,6 +134,7 @@ describe("API", () => {
     expect(await response.json()).toEqual({
       contractVersion: "1",
       player: { playerId: "1234", playerName: "Player", bindingStatus: "bound", isAdmin: false },
+      groupIdentityStatus: "active",
       recentSubmissions: [{ submissionId: "00000000-0000-0000-0000-000000000003", status: "ocr_pending", mapName: "Test Map", createdAt: 2, updatedAt: 3 }],
     });
   });

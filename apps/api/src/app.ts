@@ -5,6 +5,7 @@ import {
   qqLoginAttemptRequestSchema,
   qqLoginVerifyRequestSchema,
   qqGroupAccessRequestSchema,
+  qqGroupRegistrationRequestSchema,
   adminPlayerStatusRequestSchema,
   adminSubmissionReviewRequestSchema,
   adminTitleGrantRequestSchema,
@@ -76,6 +77,7 @@ export const createApp = (dependencies: AppDependencies) => {
   app.options("/v1/auth/qq/login-attempt/:attemptId", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/auth/logout", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me", (c) => { allowPortal(c); return c.body(null, 204); });
+  app.options("/v1/me/qq/identity-verifications", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me/titles", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me/submissions/:submissionId", (c) => { allowPortal(c); return c.body(null, 204); });
   app.options("/v1/me/submissions/:submissionId/evidence", (c) => { allowPortal(c); return c.body(null, 204); });
@@ -161,10 +163,27 @@ export const createApp = (dependencies: AppDependencies) => {
       return c.json(await dependencies.services(c.env).verifyQqLogin(parsed.data, auth, idempotencyKey));
     } catch (error) {
       const code = error instanceof Error ? error.message : "LOGIN_FAILED";
-      if (["LOGIN_CODE_INVALID", "LOGIN_CODE_EXPIRED", "LOGIN_GROUP_NOT_ALLOWED", "LOGIN_BINDING_REQUIRED", "PLAYER_BANNED"].includes(code)) return errorResponse(c, 422, code, "The login code cannot be used");
+      if (["LOGIN_CODE_INVALID", "LOGIN_CODE_EXPIRED", "LOGIN_GROUP_NOT_ALLOWED", "LOGIN_BINDING_REQUIRED", "BINDING_CONFLICT", "PLAYER_BANNED"].includes(code)) return errorResponse(c, 422, code, "The login code cannot be used");
       if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request");
       throw error;
     }
+  });
+
+  app.post("/v1/me/qq/identity-verifications", async (c) => {
+    const access = await requirePortalPlayer(c);
+    if (access.error) return access.error;
+    try { return c.json(await dependencies.services(c.env).createQqGroupIdentityVerification({ sessionToken: access.sessionToken! }), 201); }
+    catch (error) { const code = error instanceof Error ? error.message : "IDENTITY_VERIFICATION_FAILED"; if (["SESSION_NOT_FOUND", "ACTIVE_GROUP_UNAVAILABLE"].includes(code)) return errorResponse(c, 422, code, "The group identity verification is unavailable"); throw error; }
+  });
+
+  app.post("/v1/qq/groups", async (c) => {
+    const auth = await dependencies.authenticate(c.req.raw, c.env);
+    if (!auth) return errorResponse(c, 401, "UNAUTHENTICATED", "Authentication is required");
+    if (!auth.roles.includes("channel:write")) return errorResponse(c, 403, "FORBIDDEN", "The actor cannot write channel data");
+    const parsed = qqGroupRegistrationRequestSchema.safeParse(await parseBody(c.req.raw));
+    if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    await dependencies.services(c.env).registerQqGroup(parsed.data, auth);
+    return c.body(null, 204);
   });
 
   app.get("/v1/me", async (c) => {

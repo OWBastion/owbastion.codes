@@ -12,6 +12,8 @@ import type {
   QqLoginVerifyResponse,
   QqGroupAccessRequest,
   QqGroupAccessResponse,
+  QqGroupRegistrationRequest,
+  QqGroupIdentityVerificationResponse,
   AdminPlayerDetail,
   AdminPlayerListResponse,
   AdminPlayerStatusRequest,
@@ -81,9 +83,11 @@ export type PlatformServices = {
   getPlayerSubmission(input: { submissionId: string }, sessionToken: string): Promise<PlayerSubmissionDetail>;
   getPlayerEvidence(input: { submissionId: string }, sessionToken: string): Promise<{ body: ArrayBuffer; contentType: string }>;
   createQqLoginAttempt(input: QqLoginAttemptRequest): Promise<QqLoginAttemptResponse>;
+  createQqGroupIdentityVerification(input: { sessionToken: string }): Promise<QqGroupIdentityVerificationResponse>;
   getQqLoginStatus(input: { attemptId: string; attemptToken: string }): Promise<QqLoginStatusResponse>;
   verifyQqLogin(input: QqLoginVerifyRequest, auth: AuthContext, idempotencyKey: string): Promise<QqLoginVerifyResponse>;
   upsertQqGroupAccess(input: QqGroupAccessRequest, auth: AuthContext): Promise<void>;
+  registerQqGroup(input: QqGroupRegistrationRequest, auth: AuthContext): Promise<void>;
   listQqGroupAccess(auth: AuthContext): Promise<QqGroupAccessResponse[]>;
   listAdminPlayers(input: { query?: string; status?: "active" | "banned"; page: number; pageSize: number }, auth: AuthContext): Promise<AdminPlayerListResponse>;
   getAdminPlayer(input: { playerAccountId: string }, auth: AuthContext): Promise<AdminPlayerDetail>;

@@ -143,9 +143,19 @@ message only after a successful verification.
 Group access is managed through the platform-session-protected `/admin` Portal.
 The Worker accepts maintainer requests only for player accounts with `is_admin`
 enabled.
-QQBot reads the enabled group snapshot with its service token at startup and on
-the configured refresh interval; it keeps the last successful snapshot when a
+QQBot registers `GROUP_ADD_ROBOT` groups as `pending` and marks
+`GROUP_DEL_ROBOT` groups `disconnected`. A maintainer promotes exactly one
+pending group to `active`; this atomically makes the previous active group
+`legacy` and closes its `/绑定` and `/验证` policies. QQBot reads the
+platform-owned group and command-policy snapshot at startup and on the
+configured refresh interval; it keeps the last successful snapshot when a
 later refresh fails and fails closed before the first successful snapshot.
+
+An authenticated player whose session belongs to a legacy group can generate a
+short-lived `/验证` code in the Portal. The code is target-bound to the active
+group. On success the platform appends that group-scoped QQ identity to the
+same player account; it never migrates player data or deletes the legacy
+binding.
 
 ## OCR integration
 

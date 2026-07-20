@@ -60,9 +60,13 @@ export const qqLoginVerifyResponseSchema = z.object({
   contractVersion,
   status: z.literal("verified"),
   environment: z.enum(["production", "test"]),
+  purpose: z.enum(["login", "group_identity"]).default("login"),
 });
-export const qqGroupAccessRequestSchema = z.object({ contractVersion, groupOpenId: externalId, environment: z.enum(["production", "test"]), enabled: z.boolean() });
+const qqGroupStatus = z.enum(["pending", "active", "legacy", "disconnected"]);
+export const qqGroupAccessRequestSchema = z.object({ contractVersion, groupOpenId: externalId, environment: z.enum(["production", "test"]), status: qqGroupStatus, bindEnabled: z.boolean(), verifyEnabled: z.boolean() });
 export const qqGroupAccessResponseSchema = qqGroupAccessRequestSchema.extend({ updatedAt: z.number().int() });
+export const qqGroupRegistrationRequestSchema = z.object({ contractVersion, groupOpenId: externalId, status: z.enum(["pending", "disconnected"]) });
+export const qqGroupIdentityVerificationResponseSchema = qqLoginAttemptResponseSchema.extend({ targetGroupStatus: z.literal("active") });
 
 const adminPlayerStatus = z.enum(["active", "banned"]);
 const adminBindingSchema = z.object({
@@ -372,6 +376,7 @@ export const currentPlayerResponseSchema = z.object({
     bindingStatus: z.literal("bound"),
     isAdmin: z.boolean().default(false),
   }),
+  groupIdentityStatus: z.enum(["active", "verification_required", "no_active_group"]).optional(),
   recentSubmissions: z.array(submissionStatusResponseSchema.omit({ contractVersion: true })).max(5),
 });
 
@@ -393,6 +398,8 @@ export type QqLoginVerifyRequest = z.infer<typeof qqLoginVerifyRequestSchema>;
 export type QqLoginVerifyResponse = z.infer<typeof qqLoginVerifyResponseSchema>;
 export type QqGroupAccessRequest = z.infer<typeof qqGroupAccessRequestSchema>;
 export type QqGroupAccessResponse = z.infer<typeof qqGroupAccessResponseSchema>;
+export type QqGroupRegistrationRequest = z.infer<typeof qqGroupRegistrationRequestSchema>;
+export type QqGroupIdentityVerificationResponse = z.infer<typeof qqGroupIdentityVerificationResponseSchema>;
 export type AdminPlayerSummary = z.infer<typeof adminPlayerSummarySchema>;
 export type AdminPlayerDetail = z.infer<typeof adminPlayerDetailSchema>;
 export type AdminPlayerListResponse = z.infer<typeof adminPlayerListResponseSchema>;

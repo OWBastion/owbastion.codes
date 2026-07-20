@@ -721,7 +721,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
 
     async listQqGroupAccess() {
       const groups = await db.select().from(qqGroupAccess).orderBy(desc(qqGroupAccess.updatedAt));
-      return groups.map((group) => ({ contractVersion: "1" as const, groupOpenId: group.groupOpenId, environment: group.environment as "production" | "test", enabled: group.enabled === 1, updatedAt: group.updatedAt }));
+      return groups.map((group) => ({ contractVersion: "1" as const, groupOpenId: group.groupOpenId, environment: group.environment as "production" | "test", status: group.status as "pending" | "active" | "legacy" | "disconnected", bindEnabled: group.bindEnabled === 1, verifyEnabled: group.verifyEnabled === 1, updatedAt: group.updatedAt }));
     },
 
     async listAdminPlayers(input) {
@@ -805,13 +805,24 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
 
     async upsertQqGroupAccess(input: QqGroupAccessRequest, auth) {
       const timestamp = now();
+      if (input.status === "active") {
+        await db.update(qqGroupAccess).set({ status: "legacy", bindEnabled: 0, verifyEnabled: 0, updatedAt: timestamp }).where(eq(qqGroupAccess.status, "active"));
+      }
       const existing = await db.select().from(qqGroupAccess).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId)).get();
       if (existing) {
-        await db.update(qqGroupAccess).set({ environment: input.environment, enabled: input.enabled ? 1 : 0, updatedAt: timestamp }).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId));
+        await db.update(qqGroupAccess).set({ environment: input.environment, status: input.status, bindEnabled: input.bindEnabled ? 1 : 0, verifyEnabled: input.verifyEnabled ? 1 : 0, updatedAt: timestamp }).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId));
       } else {
-        await db.insert(qqGroupAccess).values({ groupOpenId: input.groupOpenId, environment: input.environment, enabled: input.enabled ? 1 : 0, createdAt: timestamp, updatedAt: timestamp });
+        await db.insert(qqGroupAccess).values({ groupOpenId: input.groupOpenId, environment: input.environment, status: input.status, bindEnabled: input.bindEnabled ? 1 : 0, verifyEnabled: input.verifyEnabled ? 1 : 0, createdAt: timestamp, updatedAt: timestamp });
       }
-      await recordAudit(db, auth, "qq.group_access.update", "qq_group_access", input.groupOpenId, { environment: input.environment, enabled: input.enabled });
+      await recordAudit(db, auth, "qq.group_access.update", "qq_group_access", input.groupOpenId, { environment: input.environment, status: input.status, bindEnabled: input.bindEnabled, verifyEnabled: input.verifyEnabled });
+    },
+
+    async registerQqGroup(input, auth) {
+      const timestamp = now();
+      const existing = await db.select().from(qqGroupAccess).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId)).get();
+      if (existing) await db.update(qqGroupAccess).set({ status: input.status, updatedAt: timestamp }).where(eq(qqGroupAccess.groupOpenId, input.groupOpenId));
+      else await db.insert(qqGroupAccess).values({ groupOpenId: input.groupOpenId, environment: "production", status: input.status, bindEnabled: 0, verifyEnabled: 0, createdAt: timestamp, updatedAt: timestamp });
+      await recordAudit(db, auth, "qq.group.register", "qq_group_access", input.groupOpenId, { status: input.status });
     },
 
     async createQqLoginAttempt(input: QqLoginAttemptRequest) {
@@ -821,6 +832,18 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       const code = randomCode();
       await db.insert(qqLoginAttempts).values({ id: attemptId, tokenHash: await hashRequest(attemptToken), codeHash: await hashRequest(code), status: "pending", expiresAt: timestamp + loginTtlMs, createdAt: timestamp });
       return { contractVersion: "1" as const, attemptId, attemptToken, code, expiresAt: timestamp + loginTtlMs };
+    },
+
+    async createQqGroupIdentityVerification(input) {
+      const session = await db.select().from(qqSessions).where(and(eq(qqSessions.tokenHash, await hashRequest(input.sessionToken)), gt(qqSessions.expiresAt, now()))).get();
+      if (!session) throw new Error("SESSION_NOT_FOUND");
+      const binding = await db.select().from(bindings).where(and(eq(bindings.groupOpenId, session.groupOpenId), eq(bindings.memberOpenId, session.memberOpenId))).get();
+      if (!binding) throw new Error("SESSION_NOT_FOUND");
+      const activeGroup = await db.select().from(qqGroupAccess).where(eq(qqGroupAccess.status, "active")).get();
+      if (!activeGroup || activeGroup.verifyEnabled !== 1) throw new Error("ACTIVE_GROUP_UNAVAILABLE");
+      const timestamp = now(); const attemptId = crypto.randomUUID(); const attemptToken = randomToken(); const code = randomCode();
+      await db.insert(qqLoginAttempts).values({ id: attemptId, tokenHash: await hashRequest(attemptToken), codeHash: await hashRequest(code), status: "pending", purpose: "group_identity", playerAccountId: binding.playerAccountId, targetGroupOpenId: activeGroup.groupOpenId, expiresAt: timestamp + loginTtlMs, createdAt: timestamp });
+      return { contractVersion: "1" as const, attemptId, attemptToken, code, expiresAt: timestamp + loginTtlMs, targetGroupStatus: "active" as const };
     },
 
     async getQqLoginStatus(input) {
@@ -844,20 +867,29 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     async verifyQqLogin(input: QqLoginVerifyRequest, auth, idempotencyKey) {
       const replay = await replayOrConflict<ReturnType<PlatformServices["verifyQqLogin"]> extends Promise<infer T> ? T : never>(db, auth.subject, "qq.login.verify", idempotencyKey, input);
       if (replay) return replay;
-      const group = await db.select().from(qqGroupAccess).where(and(eq(qqGroupAccess.groupOpenId, input.groupOpenId), eq(qqGroupAccess.enabled, 1))).get();
-      if (!group) throw new Error("LOGIN_GROUP_NOT_ALLOWED");
-      const binding = await db.select().from(bindings).where(and(eq(bindings.provider, input.provider), eq(bindings.groupOpenId, input.groupOpenId), eq(bindings.memberOpenId, input.memberOpenId))).get();
-      if (!binding) throw new Error("LOGIN_BINDING_REQUIRED");
-      const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, binding.playerAccountId)).get();
-      if (!account || account.status === "banned") throw new Error("PLAYER_BANNED");
       const attempt = await db.select().from(qqLoginAttempts).where(and(eq(qqLoginAttempts.codeHash, await hashRequest(input.code)), eq(qqLoginAttempts.status, "pending"))).get();
       if (!attempt) throw new Error("LOGIN_CODE_INVALID");
       if (attempt.expiresAt <= now()) {
         await db.update(qqLoginAttempts).set({ status: "expired" }).where(eq(qqLoginAttempts.id, attempt.id));
         throw new Error("LOGIN_CODE_EXPIRED");
       }
+      const group = await db.select().from(qqGroupAccess).where(and(eq(qqGroupAccess.groupOpenId, input.groupOpenId), eq(qqGroupAccess.status, "active"), eq(qqGroupAccess.verifyEnabled, 1))).get();
+      if (!group) throw new Error("LOGIN_GROUP_NOT_ALLOWED");
+      if (attempt.purpose === "group_identity") {
+        if (attempt.targetGroupOpenId !== input.groupOpenId || !attempt.playerAccountId) throw new Error("LOGIN_CODE_INVALID");
+        const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, attempt.playerAccountId)).get();
+        if (!account || account.status === "banned") throw new Error("PLAYER_BANNED");
+        const existing = await db.select().from(bindings).where(and(eq(bindings.provider, input.provider), eq(bindings.groupOpenId, input.groupOpenId), eq(bindings.memberOpenId, input.memberOpenId))).get();
+        if (existing && existing.playerAccountId !== account.id) throw new Error("BINDING_CONFLICT");
+        if (!existing) { const timestamp = now(); const identityId = crypto.randomUUID(); await db.insert(identities).values({ id: identityId, createdAt: timestamp, updatedAt: timestamp }); await db.insert(bindings).values({ id: crypto.randomUUID(), identityId, playerAccountId: account.id, provider: input.provider, groupOpenId: input.groupOpenId, memberOpenId: input.memberOpenId, createdAt: timestamp }); }
+      } else {
+        const binding = await db.select().from(bindings).where(and(eq(bindings.provider, input.provider), eq(bindings.groupOpenId, input.groupOpenId), eq(bindings.memberOpenId, input.memberOpenId))).get();
+        if (!binding) throw new Error("LOGIN_BINDING_REQUIRED");
+        const account = await db.select().from(playerAccounts).where(eq(playerAccounts.id, binding.playerAccountId)).get();
+        if (!account || account.status === "banned") throw new Error("PLAYER_BANNED");
+      }
       await db.update(qqLoginAttempts).set({ status: "verified", groupOpenId: input.groupOpenId, memberOpenId: input.memberOpenId, environment: group.environment, messageId: input.messageId, verifiedAt: now() }).where(eq(qqLoginAttempts.id, attempt.id));
-      const response = { contractVersion: "1" as const, status: "verified" as const, environment: group.environment as "production" | "test" };
+      const response = { contractVersion: "1" as const, status: "verified" as const, environment: group.environment as "production" | "test", purpose: attempt.purpose as "login" | "group_identity" };
       await recordIdempotency(db, auth.subject, "qq.login.verify", idempotencyKey, input, response);
       await recordAudit(db, auth, "qq.login.verify", "qq_login_attempt", attempt.id, { environment: group.environment });
       return response;
@@ -875,9 +907,12 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         .where(eq(submissions.bindingId, binding.id))
         .orderBy(desc(submissions.createdAt))
         .limit(5);
+      const activeGroup = await db.select().from(qqGroupAccess).where(eq(qqGroupAccess.status, "active")).get();
+      const activeBinding = activeGroup ? await db.select().from(bindings).where(and(eq(bindings.playerAccountId, player.id), eq(bindings.groupOpenId, activeGroup.groupOpenId))).get() : null;
       return {
         contractVersion: "1" as const,
         player: { playerId: player.playerId, playerName: player.playerName, bindingStatus: "bound" as const, isAdmin: player.isAdmin === 1 },
+        groupIdentityStatus: !activeGroup ? "no_active_group" as const : activeBinding ? "active" as const : "verification_required" as const,
         recentSubmissions: recentSubmissions.map((submission) => ({ submissionId: submission.submissionId, status: submission.status as never, mapName: submission.mapName, challengeId: submission.challengeId ?? undefined, difficulty: submission.difficulty ?? undefined, reason: submission.reason ?? undefined, createdAt: submission.createdAt, updatedAt: submission.updatedAt })),
       };
     },
@@ -911,6 +946,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     async createBinding(input: QqBindingRequest, auth, idempotencyKey) {
       const replay = await replayOrConflict<ReturnType<PlatformServices["createBinding"]> extends Promise<infer T> ? T : never>(db, auth.subject, "qq.binding.create", idempotencyKey, input);
       if (replay) return replay;
+      const group = await db.select().from(qqGroupAccess).where(and(eq(qqGroupAccess.groupOpenId, input.groupOpenId), eq(qqGroupAccess.status, "active"), eq(qqGroupAccess.bindEnabled, 1))).get();
+      if (!group) throw new Error("BINDING_GROUP_NOT_ALLOWED");
 
       const existing = await db.select().from(bindings).where(and(eq(bindings.provider, input.provider), eq(bindings.groupOpenId, input.groupOpenId), eq(bindings.memberOpenId, input.memberOpenId))).get();
       const normalizedPlayerName = normalizePlayerName(input.playerName);
