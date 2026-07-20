@@ -37,7 +37,7 @@ onMounted(() => { void load(); });
     <section aria-label="群配置"><AdminDataTable :data="groups" :columns="columns" :loading="loading" empty="暂无群配置。" table-key="channels" class="admin-table">
       <template #groupOpenId-cell="{ row }"><strong>{{ row.original.displayName || '未命名群组' }}</strong><small class="table-meta">{{ row.original.groupOpenId }}</small></template>
       <template #environment-cell="{ row }"><span>{{ row.original.environment === 'production' ? '正式群' : '测试群' }}</span></template>
-      <template #status-cell="{ row }"><StatusBadge :label="{ pending: '待启用', active: '活动中', legacy: '历史群', disconnected: '已断开' }[row.original.status]" :tone="row.original.status === 'active' ? 'success' : 'warning'" /></template>
+      <template #status-cell="{ row }"><StatusBadge :label="{ pending: '待启用', active: '已启用', legacy: '历史群', disconnected: '已断开' }[row.original.status]" :tone="row.original.status === 'active' ? 'success' : 'warning'" /></template>
       <template #verifyEnabled-cell="{ row }"><USwitch :model-value="row.original.verifyEnabled" :disabled="row.original.status !== 'active'" @update:model-value="save(row.original, { verifyEnabled: !row.original.verifyEnabled })" /></template>
       <template #bindEnabled-cell="{ row }"><USwitch :model-value="row.original.bindEnabled" :disabled="row.original.status !== 'active'" @update:model-value="save(row.original, { bindEnabled: !row.original.bindEnabled })" /></template>
       <template #updatedAt-cell="{ row }"><span class="table-meta">{{ formatTime(row.original.updatedAt) }}</span></template>
@@ -51,7 +51,7 @@ onMounted(() => { void load(); });
 </template>
 
 <style scoped>
-.table-meta { color:var(--quiet); font-size:.78rem; }
+.table-meta { display: block; overflow-wrap: anywhere; color:var(--quiet); font-size:.78rem; }
 .table-actions { display:flex; flex-wrap:wrap; gap:.4rem; }
 .editor { display:grid; gap:1rem; }
 </style>
