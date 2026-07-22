@@ -197,10 +197,10 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         category: input.category ?? null,
         rarity: input.rarity ?? null,
         status: input.status ?? null,
-        includeArchived: input.includeArchived ?? null, gameVersion: input.gameVersion ?? null,
+        includeArchived: input.includeArchived ?? null,
       }))}`);
       return withCatalogCache(cache, cacheKey, async () => {
-        const filters = [input.includeArchived ? undefined : isNull(randomEvents.archivedAt), input.status ? eq(randomEvents.releaseStatus, input.status) : input.includeArchived === undefined ? inArray(randomEvents.releaseStatus, ["implemented", "removed"]) : undefined, input.category ? eq(randomEvents.category, input.category) : undefined, input.rarity ? eq(randomEvents.rarity, input.rarity) : undefined, input.gameVersion ? eq(randomEvents.gameVersion, input.gameVersion) : undefined, input.query ? like(randomEvents.name, `%${input.query}%`) : undefined].filter(Boolean) as any[];
+        const filters = [input.includeArchived ? undefined : isNull(randomEvents.archivedAt), input.status ? eq(randomEvents.releaseStatus, input.status) : input.includeArchived === undefined ? inArray(randomEvents.releaseStatus, ["implemented", "removed"]) : undefined, input.category ? eq(randomEvents.category, input.category) : undefined, input.rarity ? eq(randomEvents.rarity, input.rarity) : undefined, input.query ? like(randomEvents.name, `%${input.query}%`) : undefined].filter(Boolean) as any[];
         const rows = await db.select().from(randomEvents).where(and(...filters)).orderBy(randomEvents.name);
         if (!rows.length) return [];
         // Batch path: 3 parallel queries regardless of event count, then in-memory assembly.
@@ -219,10 +219,6 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         for (const link of titleLinks) { const c = challengeById.get(link.challengeId); if (c) challengesByEvent.get(link.eventId)?.push(c); }
         return rows.map((row): RandomEvent => ({ eventId: row.id, name: row.name, category: row.category, rarity: row.rarity, description: row.description, durationSeconds: row.durationSeconds, cooldownSeconds: row.cooldownSeconds, weight: row.weight, appearanceProbability: row.appearanceProbability, categoryProbability: row.categoryProbability, groupTotalWeight: row.groupTotalWeight, groupSize: row.groupSize, failureProbability: row.failureProbability, guaranteeProbability: row.guaranteeProbability, globalAppearanceProbability: row.globalAppearanceProbability, gameVersion: row.gameVersion, effectTags: JSON.parse(row.effectTagsJson) as string[], releaseStatus: row.releaseStatus as RandomEvent["releaseStatus"], archived: row.archivedAt !== null, challenges: challengesByEvent.get(row.id) ?? [] }));
       });
-    },
-    async listRandomEventVersions() {
-      const rows = await db.select({ gameVersion: randomEvents.gameVersion, eventCount: count() }).from(randomEvents).where(and(isNull(randomEvents.archivedAt), inArray(randomEvents.releaseStatus, ["implemented", "removed"]))).groupBy(randomEvents.gameVersion);
-      return rows.map((row) => ({ gameVersion: row.gameVersion, eventCount: row.eventCount })).sort((left, right) => right.gameVersion.localeCompare(left.gameVersion, undefined, { numeric: true }));
     },
     async getRandomEvent(input) {
       const row = await db.select().from(randomEvents).where(and(eq(randomEvents.id, input.eventId), input.includeArchived ? undefined : isNull(randomEvents.archivedAt), input.includeArchived === undefined ? inArray(randomEvents.releaseStatus, ["implemented", "removed"]) : undefined)).get();

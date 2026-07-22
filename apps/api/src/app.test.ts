@@ -5,7 +5,6 @@ import { createApp, type RuntimeEnv } from "./app";
 const auth = async () => ({ actorType: "service" as const, subject: "qqbot", roles: ["channel:write"], provider: "test" });
 const services: PlatformServices = {
   listRandomEvents: async () => [],
-  listRandomEventVersions: async () => [],
   getRandomEvent: async () => null,
   createAdminRandomEvent: async () => { throw new Error("CHALLENGE_NOT_FOUND"); },
   updateAdminRandomEvent: async () => { throw new Error("EVENT_NOT_FOUND"); },
@@ -81,13 +80,6 @@ describe("API", () => {
     expect(response.status).toBe(200);
     expect((await response.json() as { items: Array<{ name: string }> }).items[0]?.name).toBe("稳住");
   });
-  it("lists public random-event versions before loading an individual version", async () => {
-    const eventApp = createApp({ authenticate: auth, services: () => ({ ...services, listRandomEventVersions: async () => [{ gameVersion: "26.0722.1", eventCount: 10 }] }) });
-    const response = await eventApp.request("http://localhost/v1/events/versions", {}, env);
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ items: [{ gameVersion: "26.0722.1", eventCount: 10 }] });
-  });
-
   it("requires a maintainer and an idempotency key for event imports", async () => {
     const request = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contractVersion: "1", fileName: "events.csv", csv: "名称" }) };
     expect((await app.request("http://localhost/v1/admin/events/imports", request, env)).status).toBe(403);

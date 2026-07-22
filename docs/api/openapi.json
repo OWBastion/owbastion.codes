@@ -18,7 +18,6 @@
     "/v1/titles": { "get": { "operationId": "listTitles", "parameters": [{ "$ref": "#/components/parameters/mapIdQuery" }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
     "/v1/maps": { "get": { "operationId": "listMaps", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
     "/v1/events": { "get": { "operationId": "listRandomEvents", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
-    "/v1/events/versions": { "get": { "operationId": "listRandomEventVersions", "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
     "/v1/events/{eventId}": { "get": { "operationId": "getRandomEvent", "parameters": [{ "$ref": "#/components/parameters/eventId" }], "responses": { "200": { "$ref": "#/components/responses/Json" } } } },
     "/v1/player/uploads/session": { "post": { "operationId": "createPlayerUploadSession", "responses": { "201": { "$ref": "#/components/responses/Json" } } } },
     "/v1/uploads/{uploadId}": { "put": { "operationId": "uploadEvidence", "parameters": [{ "$ref": "#/components/parameters/uploadId" }], "responses": { "204": { "description": "Uploaded" } } } },
