@@ -31,9 +31,9 @@ describe("OCR Queue consumer", () => {
     createPlatformServices.mockReturnValue({ processOcrJob, markOcrJobFailed: vi.fn() });
     const message = queueMessage(attempt);
 
-    await worker.queue({ messages: [message] } as never, { OCRKIT_EVIDENCE_BUCKET: "owbastion-codes-evidence" } as never);
+    await worker.queue({ messages: [message] } as never, { OCRKIT_BASE_URL: "https://ocr.example", OCRKIT_API_TOKEN: "ocr-token", OCRKIT_EVIDENCE_BUCKET: "owbastion-codes-evidence" } as never);
 
-    expect(createPlatformServices).toHaveBeenCalledWith(undefined, undefined, undefined, undefined, undefined, "owbastion-codes-evidence", undefined, undefined);
+    expect(createPlatformServices).toHaveBeenCalledWith(undefined, undefined, undefined, "https://ocr.example", "ocr-token", undefined, "owbastion-codes-evidence", undefined, undefined);
     expect(processOcrJob).toHaveBeenCalledWith({
       version: 1,
       submissionId: "submission-1",

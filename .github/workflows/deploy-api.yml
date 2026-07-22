@@ -85,6 +85,7 @@ jobs:
       QQBOT_API_TOKEN: ${{ secrets.QQBOT_API_TOKEN }}
       QQBOT_POLICY_WEBHOOK_URL: ${{ secrets.QQBOT_POLICY_WEBHOOK_URL }}
       QQBOT_POLICY_WEBHOOK_SECRET: ${{ secrets.QQBOT_POLICY_WEBHOOK_SECRET }}
+      OCRKIT_API_TOKEN: ${{ secrets.OCRKIT_API_TOKEN }}
       ADMIN_BATTLETAG: ${{ secrets.ADMIN_BATTLETAG }}
     steps:
       - name: Check out repository
@@ -114,6 +115,7 @@ jobs:
           test -n "$QQBOT_API_TOKEN"
           test -n "$QQBOT_POLICY_WEBHOOK_URL"
           test -n "$QQBOT_POLICY_WEBHOOK_SECRET"
+          test -n "$OCRKIT_API_TOKEN"
           test -n "$ADMIN_BATTLETAG"
           if [[ "$ADMIN_BATTLETAG" =~ ^(.+)#([0-9]{1,10})$ ]]; then
             admin_player_name="${BASH_REMATCH[1]}"
@@ -134,6 +136,7 @@ jobs:
           test "$(grep -c 'database_name = "owbastion-codes-prod"' wrangler.toml)" -eq 1
           test "$(grep -c 'binding = "CACHE"' wrangler.toml)" -eq 1
           test "$(grep -c 'id = "00000000-0000-0000-0000-000000000000"' wrangler.toml)" -eq 0
+          test "$(grep -c 'OCRKIT_BASE_URL = "https://ocr.owbastion.com"' wrangler.toml)" -eq 1
 
       - name: Ensure Queue resources exist
         shell: bash
@@ -164,6 +167,7 @@ jobs:
           printf '%s' "$QQBOT_API_TOKEN" | pnpm exec wrangler secret put QQBOT_API_TOKEN
           printf '%s' "$QQBOT_POLICY_WEBHOOK_URL" | pnpm exec wrangler secret put QQBOT_POLICY_WEBHOOK_URL
           printf '%s' "$QQBOT_POLICY_WEBHOOK_SECRET" | pnpm exec wrangler secret put QQBOT_POLICY_WEBHOOK_SECRET
+          printf '%s' "$OCRKIT_API_TOKEN" | pnpm exec wrangler secret put OCRKIT_API_TOKEN
 
       - name: Deploy Worker
         run: pnpm exec wrangler deploy
@@ -173,3 +177,6 @@ jobs:
 
       - name: Publish API URL
         run: echo "::notice title=Cloudflare Worker deployed::https://api.owbastion.com"
+
+      - name: Verify OCRKit health
+        run: curl --fail --silent --show-error https://ocr.owbastion.com/health

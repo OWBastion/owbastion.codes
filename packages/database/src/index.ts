@@ -123,7 +123,7 @@ const persistEvidence = async (db: ReturnType<typeof drizzle>, bucket: R2Bucket,
   return objectKey;
 };
 
-export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string, cache?: KVNamespace, qqPolicyQueue?: Queue): PlatformServices => {
+export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrkitApiToken?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string, cache?: KVNamespace, qqPolicyQueue?: Queue): PlatformServices => {
   const db = drizzle(database);
 
   const dispatchPendingQqGroupPolicyEvents = async () => {
@@ -665,7 +665,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     async getPlayerSubmission(input, sessionToken) {
       const submission = await getPlayerOwnedSubmission(input.submissionId, sessionToken);
       const result = await db.select().from(ocrResults).where(eq(ocrResults.submissionId, submission.id)).orderBy(desc(ocrResults.createdAt)).limit(1).get();
-      const raw = result?.responseJson ? JSON.parse(result.responseJson) as { data?: { map_name?: string | null; difficulty?: string | null; player?: string | null; challenge_completed?: boolean | null } } : null;
+      const raw = result?.responseJson ? JSON.parse(result.responseJson) as { data?: { map_name?: string | null; difficulty?: string | null; viewer_player?: string | null; challenge_completed?: boolean | null } } : null;
       return {
         contractVersion: "1" as const,
         submissionId: submission.id,
@@ -676,7 +676,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         reason: submission.reviewReason ?? undefined,
         createdAt: submission.createdAt,
         updatedAt: submission.updatedAt,
-        ...(raw ? { ocr: { mapName: raw.data?.map_name ?? null, difficulty: raw.data?.difficulty ?? null, playerName: raw.data?.player ?? null, challengeCompleted: raw.data?.challenge_completed ?? null } } : {}),
+        ...(raw ? { ocr: { mapName: raw.data?.map_name ?? null, difficulty: raw.data?.difficulty ?? null, playerName: raw.data?.viewer_player ?? null, challengeCompleted: raw.data?.challenge_completed ?? null } } : {}),
       };
     },
 
@@ -704,13 +704,13 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     },
 
     async processOcrJob(input) {
-      if (!evidenceBucket || !ocrkitBaseUrl || !ocrkitEvidenceBucket) throw new Error("OCR_NOT_CONFIGURED");
+      if (!evidenceBucket || !ocrkitBaseUrl || !ocrkitApiToken || !ocrkitEvidenceBucket) throw new Error("OCR_NOT_CONFIGURED");
       let response: Response;
       try {
-        response = await fetch(`${ocrkitBaseUrl.replace(/\/$/, "")}/api/v1/ocr/challenge/by-object`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ object_key: input.objectKey, bucket: ocrkitEvidenceBucket }) });
+        response = await fetch(`${ocrkitBaseUrl.replace(/\/$/, "")}/api/v1/ocr/challenge/by-object`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${ocrkitApiToken}`, "x-request-id": crypto.randomUUID() }, body: JSON.stringify({ object_key: input.objectKey, bucket: ocrkitEvidenceBucket }) });
       } catch { throw new Error("OCR_NETWORK"); }
       if (!response.ok) throw new Error(`OCR_HTTP_${response.status}`);
-      let result: OcrResponse & { data?: { map_name?: string | null; difficulty?: string | null; challenge_completed?: boolean | null; player?: string | null } };
+      let result: OcrResponse & { data?: { map_name?: string | null; difficulty?: string | null; challenge_completed?: boolean | null; viewer_player?: string | null } };
       try { result = await response.json() as typeof result; }
       catch { throw new Error("OCR_INVALID_RESPONSE"); }
       const row = await db.select().from(submissions).where(eq(submissions.id, input.submissionId)).get();
@@ -723,7 +723,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         await db.update(submissions).set({ status: "ocr_review_required", updatedAt: now(), reviewReason: "OCR 结果需要人工核对" }).where(and(eq(submissions.id, row.id), eq(submissions.status, "ocr_pending")));
         return;
       }
-      const { skipped, ...match } = matchOcrResult({ challengeType: row.challengeType, targetMapName: row.mapName, targetDifficulty: row.difficulty, targetPlayerName: row.playerName, mapName: data.map_name, difficulty: data.difficulty, challengeCompleted: data.challenge_completed, player: data.player });
+      const { skipped, ...match } = matchOcrResult({ challengeType: row.challengeType, targetMapName: row.mapName, targetDifficulty: row.difficulty, targetPlayerName: row.playerName, mapName: data.map_name, difficulty: data.difficulty, challengeCompleted: data.challenge_completed, player: data.viewer_player });
       const matched = Object.values(match).every(Boolean);
       await db.insert(ocrResults).values({ id: crypto.randomUUID(), submissionId: row.id, attempt: input.attempt, status: matched ? "matched" : "mismatch", responseJson: JSON.stringify(result), matchJson: JSON.stringify({ ...match, skipped, qualityGate: quality }), createdAt: now() });
       await db.update(submissions).set({ status: matched ? "ready_for_review" : "resubmission_required", updatedAt: now(), reviewReason: matched ? null : "OCR 结果与目标挑战不匹配" }).where(and(eq(submissions.id, row.id), eq(submissions.status, "ocr_pending")));

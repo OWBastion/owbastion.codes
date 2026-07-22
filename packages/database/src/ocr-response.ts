@@ -24,8 +24,8 @@ const minOcrConfidence = 0.85;
 
 export const assessOcrQuality = (challengeType: string, response: OcrResponse): OcrQualityGate => {
   const requiredFields = challengeType === "title_achievement"
-    ? ["challenge_completed", "player"]
-    : ["challenge_completed", "player", "map_name", "difficulty"];
+    ? ["challenge_completed", "viewer_player"]
+    : ["challenge_completed", "viewer_player", "map_name", "difficulty"];
   const reasons: string[] = [];
   if (response.schema_version !== "1") reasons.push("unsupported_schema_version");
   if (response.ok !== true) reasons.push("unsuccessful_response");

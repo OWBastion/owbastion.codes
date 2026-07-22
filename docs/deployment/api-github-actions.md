@@ -48,6 +48,7 @@ Configure these repository or production-environment secrets:
 | `QQBOT_API_TOKEN` | Service credential accepted by the API from QQBot |
 | `QQBOT_POLICY_WEBHOOK_URL` | QQBot's internal group-policy callback URL |
 | `QQBOT_POLICY_WEBHOOK_SECRET` | HMAC secret for the group-policy callback |
+| `OCRKIT_API_TOKEN` | Bearer credential shared only with OCRKit |
 | `ADMIN_BATTLETAG` | Full BattleTag, such as `TestPlayer#1234`, that receives administrator access during deployment |
 
 The workflow never prints secret values. `QQBOT_API_TOKEN` is sent to the
@@ -82,6 +83,10 @@ CLOUDFLARE_ZONE_ID=<zone-id> CLOUDFLARE_API_TOKEN=<api-token> pnpm deploy:api-en
 The workflow refuses to deploy while the D1 ID is still the repository's
 placeholder or while the `CACHE` KV ID is still its placeholder. It does not
 reset, delete, or roll back D1 or KV data.
+
+Set `OCRKIT_BASE_URL` in `wrangler.toml` to the public OCRKit hostname. The Worker sends
+`OCRKIT_API_TOKEN` only to that service as a Bearer credential; browser and QQBot clients do
+not call OCRKit directly.
 
 The Worker is deployed to the Git-managed Custom Domain
 `https://api.owbastion.com`. The workflow does not automatically verify the
