@@ -16,7 +16,7 @@ onMounted(async () => {
   <main class="me-page page-shell">
     <template v-if="player">
       <section class="intro" aria-labelledby="dashboard-title">
-        <div class="intro-status"><p class="eyebrow">玩家中心</p><StatusBadge label="身份已绑定" tone="success" /></div>
+        <p class="eyebrow">玩家中心</p>
         <h1 id="dashboard-title" class="page-title">你好，{{ player.player.playerName }}</h1>
       </section>
 
@@ -54,9 +54,6 @@ onMounted(async () => {
 <style scoped>
 .me-page { padding-block: clamp(64px, 9vh, 104px) 72px; }
 .intro { max-width: 690px; margin-bottom: 32px; }
-.intro-status { display: flex; align-items: center; gap: 11px; }
-.intro-status .eyebrow { margin-bottom: .8rem; }
-.intro-status .status-badge { margin-bottom: .8rem; }
 .section-block, .upcoming-section { margin-top: clamp(66px, 10vw, 110px); }
 .titles-section { margin-top: clamp(52px, 8vw, 86px); }
 .upcoming-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
