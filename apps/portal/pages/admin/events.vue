@@ -31,7 +31,7 @@ const saving = shallowRef(false);
 const importing = shallowRef(false);
 const error = shallowRef("");
 const message = shallowRef("");
-const form = reactive({ name: "", category: "", rarity: "", description: "", durationSeconds: "", cooldownSeconds: "", weight: "", appearanceProbability: "", categoryProbability: "", groupTotalWeight: "", groupSize: "", failureProbability: "", guaranteeProbability: "", globalAppearanceProbability: "", gameVersion: "", effectTags: "", releaseStatus: "development" as RandomEvent["releaseStatus"], links: [] as Link[] });
+const form = reactive({ name: "", category: "", rarity: "", description: "", durationSeconds: null as number | null, cooldownSeconds: null as number | null, weight: null as number | null, appearanceProbability: null as number | null, categoryProbability: null as number | null, groupTotalWeight: null as number | null, groupSize: null as number | null, failureProbability: null as number | null, guaranteeProbability: null as number | null, globalAppearanceProbability: null as number | null, gameVersion: "", effectTags: "", releaseStatus: "development" as RandomEvent["releaseStatus"], links: [] as Link[] });
 
 const releaseStatusText = (status: RandomEvent["releaseStatus"]) => status === "implemented" ? "已实装" : status === "removed" ? "已移除" : "开发中";
 const releaseStatusTone = (status: RandomEvent["releaseStatus"]) => status === "implemented" ? "success" : status === "removed" ? "default" : "warning";
@@ -75,9 +75,9 @@ const eventColumns: TableColumn<RandomEvent>[] = [
   { id: "actions", header: "操作", size: 80, enableHiding: false },
 ];
 
-function number(value: string) { return value === "" ? null : Number(value); }
+function number(value: number | string | null | undefined) { return value === "" || value === null || value === undefined ? null : Number(value); }
 function resetForm(event?: RandomEvent) {
-  Object.assign(form, event ? { name: event.name, category: event.category, rarity: event.rarity, description: event.description, durationSeconds: event.durationSeconds ?? "", cooldownSeconds: event.cooldownSeconds ?? "", weight: event.weight ?? "", appearanceProbability: event.appearanceProbability ?? "", categoryProbability: event.categoryProbability ?? "", groupTotalWeight: event.groupTotalWeight ?? "", groupSize: event.groupSize ?? "", failureProbability: event.failureProbability ?? "", guaranteeProbability: event.guaranteeProbability ?? "", globalAppearanceProbability: event.globalAppearanceProbability ?? "", gameVersion: event.gameVersion, effectTags: event.effectTags.join("、"), releaseStatus: event.releaseStatus, links: event.challenges.map((challenge) => ({ family: challenge.family, challengeId: challenge.challengeId })) } : { name: "", category: "", rarity: "", description: "", durationSeconds: "", cooldownSeconds: "", weight: "", appearanceProbability: "", categoryProbability: "", groupTotalWeight: "", groupSize: "", failureProbability: "", guaranteeProbability: "", globalAppearanceProbability: "", gameVersion: "", effectTags: "", releaseStatus: "development", links: [] });
+  Object.assign(form, event ? { name: event.name, category: event.category, rarity: event.rarity, description: event.description, durationSeconds: event.durationSeconds, cooldownSeconds: event.cooldownSeconds, weight: event.weight, appearanceProbability: event.appearanceProbability, categoryProbability: event.categoryProbability, groupTotalWeight: event.groupTotalWeight, groupSize: event.groupSize, failureProbability: event.failureProbability, guaranteeProbability: event.guaranteeProbability, globalAppearanceProbability: event.globalAppearanceProbability, gameVersion: event.gameVersion, effectTags: event.effectTags.join("、"), releaseStatus: event.releaseStatus, links: event.challenges.map((challenge) => ({ family: challenge.family, challengeId: challenge.challengeId })) } : { name: "", category: "", rarity: "", description: "", durationSeconds: null, cooldownSeconds: null, weight: null, appearanceProbability: null, categoryProbability: null, groupTotalWeight: null, groupSize: null, failureProbability: null, guaranteeProbability: null, globalAppearanceProbability: null, gameVersion: "", effectTags: "", releaseStatus: "development", links: [] });
 }
 function openCreate() { selectedEvent.value = null; resetForm(); probabilityOpen.value = false; editorOpen.value = true; }
 function openEvent(event: RandomEvent) { selectedEvent.value = event; resetForm(event); probabilityOpen.value = false; editorOpen.value = true; }
@@ -126,26 +126,26 @@ onMounted(() => void load());
               <UFormField label="类别"><UInput v-model="form.category" required /></UFormField>
               <UFormField label="稀有度"><UInput v-model="form.rarity" required /></UFormField>
               <UFormField label="版本"><UInput v-model="form.gameVersion" required /></UFormField>
-              <UFormField label="类别概率"><UInput v-model="form.categoryProbability" type="number" min="0" max="1" step="any" /></UFormField>
-              <UFormField label="权重"><UInput v-model="form.weight" type="number" min="0" step="any" /></UFormField>
-              <UFormField label="内置冷却（秒）"><UInput v-model="form.cooldownSeconds" type="number" min="0" /></UFormField>
-              <UFormField label="持续时间（秒）"><UInput v-model="form.durationSeconds" type="number" min="0" /></UFormField>
+              <UFormField label="类别概率"><UInputNumber v-model="form.categoryProbability" :min="0" :max="1" :step="0.01" class="w-full" /></UFormField>
+              <UFormField label="权重"><UInputNumber v-model="form.weight" :min="0" class="w-full" /></UFormField>
+              <UFormField label="内置冷却（秒）"><UInputNumber v-model="form.cooldownSeconds" :min="0" class="w-full" /></UFormField>
+              <UFormField label="持续时间（秒）"><UInputNumber v-model="form.durationSeconds" :min="0" class="w-full" /></UFormField>
             </div>
             <UFormField label="内容说明"><UTextarea v-model="form.description" required :rows="4" /></UFormField>
           </section>
 
           <section class="grid gap-4">
             <h3 class="text-base font-semibold">概率信息</h3>
-            <UFormField label="最终出现概率"><UInput v-model="form.appearanceProbability" type="number" readonly /></UFormField>
+            <UFormField label="最终出现概率"><UInput v-model="form.appearanceProbability" readonly /></UFormField>
             <UCollapsible v-model:open="probabilityOpen" class="grid gap-3">
               <UButton type="button" label="展开更多概率字段" color="neutral" variant="ghost" trailing-icon="i-lucide-chevron-down" class="justify-start px-0" />
               <template #content>
                 <div class="grid gap-4 border-l border-default pl-4 sm:grid-cols-2">
-                  <UFormField label="组内总权重"><UInput v-model="form.groupTotalWeight" type="number" readonly /></UFormField>
-                  <UFormField label="组内个数"><UInput v-model="form.groupSize" type="number" readonly /></UFormField>
-                  <UFormField label="单次失败率"><UInput v-model="form.failureProbability" type="number" readonly /></UFormField>
-                  <UFormField label="保底触发率"><UInput v-model="form.guaranteeProbability" type="number" readonly /></UFormField>
-                  <UFormField label="全局出现概率"><UInput v-model="form.globalAppearanceProbability" type="number" readonly /></UFormField>
+                  <UFormField label="组内总权重"><UInput v-model="form.groupTotalWeight" readonly /></UFormField>
+                  <UFormField label="组内个数"><UInput v-model="form.groupSize" readonly /></UFormField>
+                  <UFormField label="单次失败率"><UInput v-model="form.failureProbability" readonly /></UFormField>
+                  <UFormField label="保底触发率"><UInput v-model="form.guaranteeProbability" readonly /></UFormField>
+                  <UFormField label="全局出现概率"><UInput v-model="form.globalAppearanceProbability" readonly /></UFormField>
                 </div>
               </template>
             </UCollapsible>
