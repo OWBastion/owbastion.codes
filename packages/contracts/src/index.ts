@@ -38,6 +38,15 @@ const inviteCode = z.string().trim().regex(/^[A-Z2-9]{12}$/);
 const inviteClaimCode = z.string().trim().regex(/^[A-Z2-9]{6}$/);
 export const adminBindingInviteRequestSchema = z.object({ contractVersion, playerName: z.string().trim().min(1).max(64), playerId });
 export const adminBindingInviteResponseSchema = z.object({ contractVersion, inviteId: z.string().uuid(), code: inviteCode, playerName: z.string(), playerId, expiresAt: z.number().int() });
+export const adminBindingInviteBatchRequestSchema = z.object({ contractVersion, invitations: z.array(adminBindingInviteRequestSchema.omit({ contractVersion: true })).min(1).max(100) }).superRefine((value, context) => {
+  const seen = new Set<string>();
+  value.invitations.forEach((invitation, index) => {
+    const key = `${invitation.playerName.toLocaleLowerCase()}#${invitation.playerId}`;
+    if (seen.has(key)) context.addIssue({ code: "custom", path: ["invitations", index], message: "Duplicate BattleTag" });
+    seen.add(key);
+  });
+});
+export const adminBindingInviteBatchResponseSchema = z.object({ contractVersion, items: z.array(adminBindingInviteResponseSchema).min(1).max(100) });
 export const bindingInviteRedeemRequestSchema = z.object({ contractVersion, code: inviteCode, playerName: z.string().trim().min(1).max(64), playerId });
 export const bindingInviteRedeemResponseSchema = z.object({ contractVersion, claimId: z.string().uuid(), claimToken: z.string().min(32), code: inviteClaimCode, expiresAt: z.number().int() });
 export const qqBindingClaimVerifyRequestSchema = z.object({ contractVersion, provider: z.literal("qq"), code: inviteClaimCode, groupOpenId: externalId, memberOpenId: externalId, messageId: externalId });
@@ -401,6 +410,8 @@ export type QqBindingRequest = z.infer<typeof qqBindingRequestSchema>;
 export type QqBindingResponse = z.infer<typeof qqBindingResponseSchema>;
 export type AdminBindingInviteRequest = z.infer<typeof adminBindingInviteRequestSchema>;
 export type AdminBindingInviteResponse = z.infer<typeof adminBindingInviteResponseSchema>;
+export type AdminBindingInviteBatchRequest = z.infer<typeof adminBindingInviteBatchRequestSchema>;
+export type AdminBindingInviteBatchResponse = z.infer<typeof adminBindingInviteBatchResponseSchema>;
 export type BindingInviteRedeemRequest = z.infer<typeof bindingInviteRedeemRequestSchema>;
 export type BindingInviteRedeemResponse = z.infer<typeof bindingInviteRedeemResponseSchema>;
 export type QqBindingClaimVerifyRequest = z.infer<typeof qqBindingClaimVerifyRequestSchema>;

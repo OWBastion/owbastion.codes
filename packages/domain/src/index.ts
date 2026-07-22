@@ -1,7 +1,7 @@
 import type {
   QqBindingRequest,
   QqBindingResponse,
-  AdminBindingInviteRequest, AdminBindingInviteResponse, BindingInviteRedeemRequest, BindingInviteRedeemResponse, QqBindingClaimVerifyRequest, AdminBindingClaimDecisionRequest,
+  AdminBindingInviteRequest, AdminBindingInviteResponse, AdminBindingInviteBatchRequest, AdminBindingInviteBatchResponse, BindingInviteRedeemRequest, BindingInviteRedeemResponse, QqBindingClaimVerifyRequest, AdminBindingClaimDecisionRequest,
   SubmissionRequest,
   SubmissionResponse,
   SubmissionStatusResponse,
@@ -79,6 +79,7 @@ export type PlatformServices = {
   reviewSubmission(input: { submissionId: string; decision: AdminSubmissionReviewRequest["decision"]; reason: string }, auth: AuthContext, idempotencyKey: string): Promise<void>;
   createBinding(input: QqBindingRequest, auth: AuthContext, idempotencyKey: string): Promise<QqBindingResponse>;
   createAdminBindingInvite(input: AdminBindingInviteRequest, auth: AuthContext, idempotencyKey: string): Promise<AdminBindingInviteResponse>;
+  createAdminBindingInviteBatch(input: AdminBindingInviteBatchRequest, auth: AuthContext, idempotencyKey: string): Promise<AdminBindingInviteBatchResponse>;
   redeemBindingInvite(input: BindingInviteRedeemRequest): Promise<BindingInviteRedeemResponse>;
   verifyBindingClaim(input: QqBindingClaimVerifyRequest, auth: AuthContext, idempotencyKey: string): Promise<QqLoginVerifyResponse>;
   listAdminBindingClaims(auth: AuthContext): Promise<{ contractVersion: "1"; items: Array<{ claimId: string; playerName: string; playerId: string; status: "pending_confirmation" | "pending_review" | "approved" | "rejected" | "expired"; createdAt: number; memberOpenId?: string; groupOpenId?: string; invitedBy: string; affectedPlayerAccountId?: string }> }>;

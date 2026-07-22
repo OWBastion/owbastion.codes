@@ -1025,6 +1025,30 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       return response;
     },
 
+    async createAdminBindingInviteBatch(input, auth, idempotencyKey) {
+      const operation = "admin.binding_invite.batch_create";
+      const replay = await replayOrConflict<ReturnType<PlatformServices["createAdminBindingInviteBatch"]> extends Promise<infer T> ? T : never>(db, auth.subject, operation, idempotencyKey, input);
+      if (replay) return replay;
+      const timestamp = now();
+      const codes = new Set<string>();
+      while (codes.size < input.invitations.length) codes.add(randomInviteCode());
+      const prepared = await Promise.all(input.invitations.map(async (invitation, index) => {
+        const code = [...codes][index]!;
+        const inviteId = crypto.randomUUID();
+        return {
+          invite: { id: inviteId, codeHash: await hashRequest(code), playerName: invitation.playerName, normalizedPlayerName: normalizePlayerName(invitation.playerName), playerId: invitation.playerId, createdBy: auth.subject, createdAt: timestamp, expiresAt: timestamp + inviteTtlMs },
+          response: { contractVersion: "1" as const, inviteId, code, playerName: invitation.playerName, playerId: invitation.playerId, expiresAt: timestamp + inviteTtlMs },
+        };
+      }));
+      const response = { contractVersion: "1" as const, items: prepared.map(({ response }) => response) };
+      await db.batch([
+        ...prepared.map(({ invite }) => db.insert(bindingInvites).values(invite)),
+        db.insert(idempotencyKeys).values({ id: `${auth.subject}:${operation}:${idempotencyKey}`, actorId: auth.subject, operation, requestHash: await hashRequest(input), responseJson: JSON.stringify(response), createdAt: timestamp }),
+        ...prepared.map(({ response: invite }) => db.insert(auditEvents).values({ id: crypto.randomUUID(), correlationId: crypto.randomUUID(), actorType: auth.actorType, actorId: auth.subject, operation, entityType: "binding_invite", entityId: invite.inviteId, payloadJson: JSON.stringify({ playerId: invite.playerId }), createdAt: timestamp })),
+      ] as [any, ...any[]]);
+      return response;
+    },
+
     async redeemBindingInvite(input) {
       const invite = await db.select().from(bindingInvites).where(eq(bindingInvites.codeHash, await hashRequest(input.code))).get();
       const normalized = normalizePlayerName(input.playerName);
