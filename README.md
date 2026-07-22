@@ -1,6 +1,6 @@
 # OWBastion Web Platform
 
-`owbastion.codes` 是一个基于 Cloudflare Workers 的 pnpm TypeScript workspace，提供 Bastion 生态的 Web Portal、HTTP API、业务数据存储和外部服务集成。
+OWBastion 平台是一个基于 Cloudflare Workers 的 pnpm TypeScript workspace，提供 Bastion 生态的 Web Portal、HTTP API、业务数据存储和外部服务集成。本仓库 `owbastion.codes` 保存平台代码。
 
 ## 技术栈
 
@@ -25,7 +25,7 @@ tools/       本地开发、数据导入和部署辅助脚本
 docs/        架构、开发、部署和 API 文档
 ```
 
-Portal 通过服务端 API 访问平台数据；业务规则位于 domain 和 database 包，Worker 与 Portal 负责协议适配。D1 保存业务状态，R2 用于私有证据文件，外部 QQ、OCR 和发布系统通过明确的集成边界接入。
+Portal 通过服务端 API 访问平台数据；业务规则位于 domain 和 database 包，Worker 与 Portal 负责协议适配。D1 保存业务状态，R2 用于私有证据文件，外部 QQ、OCR 和发布系统通过明确的集成边界接入。QQBot 负责绑定、验证和通知，不创建截图提交；截图提交、私有证据存储和提交状态由 Portal 与平台 API 负责。
 
 ## 开始开发
 
