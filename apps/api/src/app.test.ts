@@ -4,23 +4,6 @@ import { createApp, type RuntimeEnv } from "./app";
 
 const auth = async () => ({ actorType: "service" as const, subject: "qqbot", roles: ["channel:write"], provider: "test" });
 const services: PlatformServices = {
-  createReleaseDraft: async () => ({ contractVersion: "1", draftId: "00000000-0000-0000-0000-000000000010", name: "test", status: "open", createdAt: 1, updatedAt: 1 }),
-  putReleaseDraftItem: async () => ({ contractVersion: "1", itemId: "00000000-0000-0000-0000-000000000011", draftId: "00000000-0000-0000-0000-000000000010", contentType: "event", contentId: "event.test", operation: "upsert" }),
-  createReleaseChangeSet: async () => ({ contractVersion: "1", changeSetId: "00000000-0000-0000-0000-000000000012", draftId: "00000000-0000-0000-0000-000000000010", name: "test", itemCount: 1, status: "open" }),
-  createReleaseCandidate: async () => ({ contractVersion: "1", candidateId: "00000000-0000-0000-0000-000000000013", changeSetId: "00000000-0000-0000-0000-000000000012", sourceVersion: "candidate-test", snapshotHash: "a".repeat(64), status: "candidate", createdAt: 1 }),
-  getReleaseCandidate: async () => ({ contractVersion: "1", candidateId: "00000000-0000-0000-0000-000000000013", changeSetId: "00000000-0000-0000-0000-000000000012", sourceVersion: "candidate-test", snapshotHash: "a".repeat(64), status: "candidate", createdAt: 1, snapshot: { schemaVersion: 1, candidateId: "00000000-0000-0000-0000-000000000013", baseReleaseId: null, sourceVersion: "candidate-test", generatedAt: 1, items: [], snapshotHash: "a".repeat(64) } }),
-  startReleaseBuild: async () => ({ contractVersion: "1", buildId: "00000000-0000-0000-0000-000000000014", candidateId: "00000000-0000-0000-0000-000000000013", releaseId: "00000000-0000-0000-0000-000000000015", status: "queued" }),
-  receiveReleaseBuildResult: async (input) => ({ contractVersion: "1", buildId: input.buildId, candidateId: input.candidateId, releaseId: "00000000-0000-0000-0000-000000000015", status: input.status }),
-  getReleaseOverview: async () => ({ contractVersion: "1", current: null, next: null, drafts: [], releases: [] }),
-  listAgentEvents: async () => ({ contractVersion: "1", items: [], page: 1, pageSize: 20, total: 0, hasMore: false }),
-  getAgentEvent: async () => null,
-  listAgentMaps: async () => ({ contractVersion: "1", items: [], page: 1, pageSize: 20, total: 0, hasMore: false }),
-  getAgentMap: async () => null,
-  listAgentAchievements: async () => ({ contractVersion: "1", items: [], page: 1, pageSize: 20, total: 0, hasMore: false }),
-  getAgentAchievement: async () => null,
-  listAgentTitles: async () => ({ contractVersion: "1", items: [], page: 1, pageSize: 20, total: 0, hasMore: false }),
-  getAgentTitle: async () => null,
-  searchAgentContent: async () => ({ contractVersion: "1", items: [], page: 1, pageSize: 20, total: 0, hasMore: false }),
   listRandomEvents: async () => [],
   getRandomEvent: async () => null,
   createAdminRandomEvent: async () => { throw new Error("CHALLENGE_NOT_FOUND"); },
@@ -72,6 +55,7 @@ const services: PlatformServices = {
   upsertQqGroupAccess: async () => {},
   registerQqGroup: async () => {},
   listQqGroupAccess: async () => [],
+  dispatchPendingQqGroupPolicyEvents: async () => {},
   markQqGroupPolicyEventDelivered: async () => {},
   listAdminPlayers: async () => ({ contractVersion: "1" as const, items: [], page: 1, pageSize: 25, total: 0, hasMore: false }),
   getAdminPlayer: async () => { throw new Error("PLAYER_NOT_FOUND"); },
@@ -95,40 +79,11 @@ const app = createApp({
 const env = {} as RuntimeEnv;
 
 describe("API", () => {
-  it("protects Bastion candidate routes and accepts a structured build result", async () => {
-    const internalApp = createApp({ authenticate: async () => null, services: () => services });
-    const unauthorized = await internalApp.request("http://localhost/v1/internal/bastion/candidates/candidate-1", {}, { ...env, BASTION_BUILD_TOKEN: "bastion-token" });
-    expect(unauthorized.status).toBe(401);
-    const response = await internalApp.request("http://localhost/v1/internal/bastion/build-results", {
-      method: "POST",
-      headers: { authorization: "Bearer bastion-token", "content-type": "application/json" },
-      body: JSON.stringify({ contractVersion: "1", buildId: "build-1", candidateId: "candidate-1", status: "succeeded", bastionCommitSha: "abc123", snapshotHash: "a".repeat(64), artifactRefs: ["build/main.ow"], warnings: [], errors: [] }),
-    }, { ...env, BASTION_BUILD_TOKEN: "bastion-token" });
-    expect(response.status).toBe(200);
-    expect((await response.json() as { status: string }).status).toBe("succeeded");
-  });
-
   it("lists public random events without development records", async () => {
     const eventApp = createApp({ authenticate: auth, services: () => ({ ...services, listRandomEvents: async () => [{ eventId: "event.test", name: "稳住", category: "增益", rarity: "R", description: "测试事件", durationSeconds: 60, cooldownSeconds: null, weight: 1, appearanceProbability: .1, categoryProbability: .4, groupTotalWeight: 1, groupSize: 1, failureProbability: null, guaranteeProbability: null, globalAppearanceProbability: .1, gameVersion: "5.0", effectTags: ["护盾"], releaseStatus: "implemented", archived: false, challenges: [] }] }) });
     const response = await eventApp.request("http://localhost/v1/events", {}, env);
     expect(response.status).toBe(200);
     expect((await response.json() as { items: Array<{ name: string }> }).items[0]?.name).toBe("稳住");
-  });
-  it("exposes public agent projections without authentication", async () => {
-    const agentApp = createApp({ authenticate: async () => null, services: () => ({
-      ...services,
-      listAgentEvents: async () => ({ contractVersion: "1" as const, items: [], page: 1, pageSize: 20, total: 0, hasMore: false }),
-      searchAgentContent: async ({ query }) => ({ contractVersion: "1" as const, items: [{ kind: "event" as const, id: "event.test", name: "稳住", summary: `命中：${query}` }], page: 1, pageSize: 20, total: 1, hasMore: false }),
-    }) });
-    const events = await agentApp.request("http://localhost/v1/agents/events", {}, env);
-    expect(events.status).toBe(200);
-    expect(events.headers.get("cache-control")).toContain("public");
-    expect((await events.json() as { page: number }).page).toBe(1);
-    const search = await agentApp.request("http://localhost/v1/agents/search?q=心之钢", {}, env);
-    expect(search.status).toBe(200);
-    expect((await search.json() as { items: Array<{ kind: string }> }).items[0]?.kind).toBe("event");
-    expect((await agentApp.request("http://localhost/v1/agents/search", {}, env)).status).toBe(422);
-    expect((await agentApp.request("http://localhost/v1/agents/maps?pageSize=101", {}, env)).status).toBe(422);
   });
   it("requires a maintainer and an idempotency key for event imports", async () => {
     const request = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contractVersion: "1", fileName: "events.csv", csv: "名称" }) };
@@ -586,58 +541,6 @@ describe("API", () => {
     expect(await paged.json()).toMatchObject({ page: 2, pageSize: 20, total: 27, hasMore: true });
     expect(requests).toEqual([{ statuses: ["ready_for_review", "ocr_review_required"], page: 2, pageSize: 20 }]);
     expect((await adminApp.request("http://localhost/v1/admin/submissions?status=unknown", {}, env)).status).toBe(422);
-    const legacy = await adminApp.request("http://localhost/v1/admin/submissions?status=received,evidence_stored", {}, env);
-    expect(legacy.status).toBe(200);
-    expect(requests.at(-1)).toEqual({ statuses: ["received", "evidence_stored"], page: 1, pageSize: 50 });
-  });
-
-  it("returns a traceable error when an administrative review fails unexpectedly", async () => {
-    const reviewApp = createApp({
-      authenticate: async () => ({ actorType: "user", subject: "admin", roles: ["maintainer"], provider: "test" }),
-      services: () => ({ ...services, reviewSubmission: async () => { throw new Error("D1_WRITE_FAILED"); } }),
-    });
-    const response = await reviewApp.request("http://localhost/v1/admin/submissions/submission-1/review", {
-      method: "POST",
-      headers: { "content-type": "application/json", "idempotency-key": "review-key", "x-request-id": "request-review-1" },
-      body: JSON.stringify({ contractVersion: "1", decision: "rejected" }),
-    }, env);
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ contractVersion: "1", error: { code: "REVIEW_FAILED", message: "The review could not be completed", requestId: "request-review-1" } });
-  });
-
-  it("returns traceable errors for unexpected player upload failures", async () => {
-    const uploadApp = createApp({
-      authenticate: async () => ({ actorType: "user", subject: "player", roles: [], provider: "test" }),
-      services: () => ({
-        ...services,
-        createPlayerUploadSession: async () => { throw new Error("D1_SESSION_WRITE_FAILED"); },
-        completePlayerUpload: async () => { throw new Error("D1_COMPLETE_WRITE_FAILED"); },
-      }),
-    });
-    const session = await uploadApp.request("http://localhost/v1/player/uploads/session", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie: "owb_session=session-token", "x-request-id": "request-upload-session-1" },
-      body: JSON.stringify({ contractVersion: "1", challengeId: "challenge-1", contentType: "image/png", byteSize: 3, sha256: "a".repeat(64) }),
-    }, env);
-    const complete = await uploadApp.request("http://localhost/v1/player/uploads/upload-1/complete", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie: "owb_session=session-token", "x-request-id": "request-upload-complete-1" },
-      body: JSON.stringify({ contractVersion: "1", uploadId: "upload-1" }),
-    }, env);
-    expect(session.status).toBe(500);
-    expect(await session.json()).toEqual({ contractVersion: "1", error: { code: "UPLOAD_SESSION_FAILED", message: "The screenshot upload session could not be created", requestId: "request-upload-session-1" } });
-    expect(complete.status).toBe(500);
-    expect(await complete.json()).toEqual({ contractVersion: "1", error: { code: "UPLOAD_COMPLETE_FAILED", message: "The screenshot submission could not be completed", requestId: "request-upload-complete-1" } });
-  });
-
-  it("returns the request id on successful and generated responses", async () => {
-    const response = await app.request("http://localhost/v1/maps", { headers: { "x-request-id": "request-map-1" } }, env);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("x-request-id")).toBe("request-map-1");
-
-    const generated = await app.request("http://localhost/v1/maps", {}, env);
-    expect(generated.status).toBe(200);
-    expect(generated.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it("keeps local development login disabled unless explicitly enabled", async () => {

@@ -14,7 +14,7 @@ The repository contains an implemented TypeScript workspace with:
 - packages/contracts, domain, database, and auth;
 - forward-only D1 migrations for bindings, submissions, evidence metadata, and
   QQ login/session state, maps, achievement challenges, and the versioned
-  Bastion title catalog, plus Draft/Change Set/Candidate/Release state;
+  Bastion title catalog;
 - an R2 evidence binding used when EVIDENCE_BUCKET is available.
 
 OCR orchestration, review, Bastion challenge snapshot import, and Queue-backed
@@ -44,9 +44,7 @@ released game content remains authoritative in OWBastion/Bastion.
   sessions, Queue-backed OCR processing, public submission status, QQ login
   verification, session lookup/logout, and a platform-session-protected
   administrative API for players, groups, submissions, and achievement catalog
-  management. The public read-only `/v1/agents/*` projection exposes published
-  events, maps, achievements, titles, and bounded cross-content search without
-  player, draft, or administrative data.
+  management.
 - **Evidence:** private QQ image retrieval and R2 storage during submission
   creation when the Worker R2 binding is configured.
 
@@ -62,11 +60,6 @@ those remain Bastion-release and historical-title-migration responsibilities.
 Random events are platform-owned directory records. Their labels and balancing
 metadata are maintained through the administrator Portal and may link to
 existing platform challenges, but do not modify Bastion's released scripts.
-
-The release plane exposes only versioned content metadata to Bastion. Bastion
-pulls a specific Candidate, validates stable IDs against its own source, builds
-the Workshop outputs, and reports the result through the authenticated internal
-callback. A failed Candidate build never advances Current.
 
 ## Design principles
 
