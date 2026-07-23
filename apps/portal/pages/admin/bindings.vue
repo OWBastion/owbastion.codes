@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TabsItem } from "@nuxt/ui";
 import BindingInviteBatchPanel from "~/components/admin/BindingInviteBatchPanel.vue";
 
 definePageMeta({ middleware: ["auth", "admin-client"] });
@@ -8,6 +9,12 @@ const toast = useToast();
 const api = useAdminApi();
 const claims = ref<Claim[]>([]); const invitations = ref<Invitation[]>([]); const loading = ref(true); const errorMessage = ref("");
 const revokeTarget = ref<Invitation | null>(null); const revokeReason = ref(""); const revoking = ref(false);
+const activeTab = shallowRef("claims");
+const bindingTabs = [
+  { label: "绑定申请", value: "claims", slot: "claims" as const },
+  { label: "已生成邀请码", value: "invitations", slot: "invitations" as const },
+  { label: "批量生成", value: "batch", slot: "batch" as const },
+] satisfies TabsItem[];
 const columns = [{ accessorKey: "battleTag", header: "玩家" }, { accessorKey: "status", header: "状态" }, { accessorKey: "createdAt", header: "申请时间" }, { id: "actions", header: "", enableHiding: false }];
 const invitationColumns = [{ accessorKey: "battleTag", header: "玩家" }, { accessorKey: "status", header: "状态" }, { accessorKey: "expiresAt", header: "有效期" }, { id: "actions", header: "", enableHiding: false }];
 const statusLabel = (status: Claim["status"]) => ({ pending_confirmation: "等待确认", pending_review: "待处理", approved: "已批准", rejected: "已拒绝", expired: "已过期" })[status];
@@ -24,22 +31,29 @@ onMounted(load);
 <template>
   <AdminWorkspace title="绑定管理" :count="loading ? '读取中…' : `${claims.length} 条`">
     <template #messages><UAlert v-if="errorMessage" color="error" variant="subtle" :description="errorMessage" /></template>
-    <template #toolbar><BindingInviteBatchPanel @created="load" /></template>
-    <section class="binding-section" aria-label="已生成的邀请码">
-      <PageSectionHeader title="已生成的邀请码"><template #actions><span class="table-meta">仅显示状态与有效期</span></template></PageSectionHeader>
-      <AdminDataTable :data="invitations" :columns="invitationColumns" :loading="loading" empty="暂无邀请码。" table-key="binding-invites">
-        <template #battleTag-cell="{ row }"><strong><PlayerBattleTag :player-name="row.original.playerName" :player-id="row.original.playerId" /></strong></template>
-        <template #status-cell="{ row }"><StatusBadge :label="invitationStatusLabel(row.original.status)" :tone="row.original.status === 'active' ? 'warning' : row.original.status === 'redeemed' ? 'success' : 'default'" /></template>
-        <template #expiresAt-cell="{ row }"><span class="table-meta">{{ formatDate(row.original.expiresAt) }}</span></template>
-        <template #actions-cell="{ row }"><UButton v-if="row.original.status === 'active'" label="撤销" color="error" variant="soft" size="xs" @click="openRevoke(row.original)" /></template>
-      </AdminDataTable>
+    <section class="binding-section" aria-label="绑定记录">
+      <UTabs v-model="activeTab" :items="bindingTabs" variant="link" aria-label="绑定记录类型" class="binding-tabs">
+        <template #claims>
+          <AdminDataTable :data="claims" :columns="columns" :loading="loading" empty="暂无绑定申请。" table-key="binding-claims">
+            <template #battleTag-cell="{ row }"><strong><PlayerBattleTag :player-name="row.original.playerName" :player-id="row.original.playerId" /></strong></template>
+            <template #status-cell="{ row }"><StatusBadge :label="statusLabel(row.original.status)" :tone="row.original.status === 'pending_review' ? 'warning' : row.original.status === 'approved' ? 'success' : 'default'" /></template>
+            <template #createdAt-cell="{ row }"><span class="table-meta">{{ formatDate(row.original.createdAt) }}</span></template>
+            <template #actions-cell="{ row }"><div v-if="row.original.status === 'pending_review'" class="claim-actions"><UButton label="批准" size="xs" @click="decide(row.original, 'approved')" /><UButton label="拒绝" color="error" variant="soft" size="xs" @click="decide(row.original, 'rejected')" /></div></template>
+          </AdminDataTable>
+        </template>
+        <template #invitations>
+          <AdminDataTable :data="invitations" :columns="invitationColumns" :loading="loading" empty="暂无邀请码。" table-key="binding-invites">
+            <template #battleTag-cell="{ row }"><strong><PlayerBattleTag :player-name="row.original.playerName" :player-id="row.original.playerId" /></strong></template>
+            <template #status-cell="{ row }"><StatusBadge :label="invitationStatusLabel(row.original.status)" :tone="row.original.status === 'active' ? 'warning' : row.original.status === 'redeemed' ? 'success' : 'default'" /></template>
+            <template #expiresAt-cell="{ row }"><span class="table-meta">{{ formatDate(row.original.expiresAt) }}</span></template>
+            <template #actions-cell="{ row }"><UButton v-if="row.original.status === 'active'" label="撤销" color="error" variant="soft" size="xs" @click="openRevoke(row.original)" /></template>
+          </AdminDataTable>
+        </template>
+        <template #batch>
+          <BindingInviteBatchPanel @created="load" />
+        </template>
+      </UTabs>
     </section>
-    <AdminDataTable :data="claims" :columns="columns" :loading="loading" empty="暂无绑定申请。" table-key="binding-claims">
-      <template #battleTag-cell="{ row }"><strong><PlayerBattleTag :player-name="row.original.playerName" :player-id="row.original.playerId" /></strong></template>
-      <template #status-cell="{ row }"><StatusBadge :label="statusLabel(row.original.status)" :tone="row.original.status === 'pending_review' ? 'warning' : row.original.status === 'approved' ? 'success' : 'default'" /></template>
-      <template #createdAt-cell="{ row }"><span class="table-meta">{{ new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(row.original.createdAt) }}</span></template>
-      <template #actions-cell="{ row }"><div v-if="row.original.status === 'pending_review'" class="claim-actions"><UButton label="批准" size="xs" @click="decide(row.original, 'approved')" /><UButton label="拒绝" color="error" variant="soft" size="xs" @click="decide(row.original, 'rejected')" /></div></template>
-    </AdminDataTable>
     <UModal :open="revokeTarget !== null" title="撤销邀请码" :description="revokeTarget ? `${revokeTarget.playerName}#${revokeTarget.playerId}` : undefined" @update:open="(open) => { if (!open) closeRevoke(); }">
       <template #body><form v-if="revokeTarget" id="invite-revoke" class="revoke-form" @submit.prevent="revokeInvitation"><p class="revoke-note">撤销后无法恢复。</p><UFormField label="撤销原因" required><UTextarea v-model="revokeReason" maxlength="256" placeholder="例如：发送对象有误" :disabled="revoking" /></UFormField></form></template>
       <template #footer><UButton label="取消" color="neutral" variant="outline" :disabled="revoking" @click="closeRevoke" /><UButton label="确认撤销" color="error" type="submit" form="invite-revoke" :loading="revoking" :disabled="!revokeReason.trim()" /></template>
@@ -47,4 +61,4 @@ onMounted(load);
   </AdminWorkspace>
 </template>
 
-<style scoped>.binding-section { display:grid; gap:12px; }.claim-actions { display:flex; gap:8px; }.table-meta,.revoke-note { color:var(--quiet); font-size:.78rem; }.revoke-form { display:grid; gap:16px; }</style>
+<style scoped>.binding-section,.binding-tabs { display:grid; gap:12px; }.claim-actions { display:flex; gap:8px; }.table-meta,.revoke-note { color:var(--quiet); font-size:.78rem; }.revoke-form { display:grid; gap:16px; }</style>
