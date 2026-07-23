@@ -1192,7 +1192,79 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       if (expiredIds.length > 0) {
         await db.update(bindingClaims).set({ status: "expired" }).where(and(eq(bindingClaims.status, "pending_confirmation"), lte(bindingClaims.expiresAt, timestamp)));
       }
-      return { contractVersion: "1" as const, items: rows.map(({ claim, invite, account }) => ({ claimId: claim.id, playerName: claim.playerName, playerId: claim.playerId, status: (claim.status === "pending_confirmation" && claim.expiresAt <= timestamp ? "expired" : claim.status) as "pending_confirmation" | "pending_review" | "approved" | "rejected" | "expired", createdAt: claim.createdAt, ...(claim.memberOpenId ? { memberOpenId: claim.memberOpenId } : {}), ...(claim.groupOpenId ? { groupOpenId: claim.groupOpenId } : {}), invitedBy: invite.createdBy, ...(account ? { affectedPlayerAccountId: account.id } : {}) })) };
+
+      const activeBindings = await db
+        .select({ binding: bindings, account: playerAccounts })
+        .from(bindings)
+        .leftJoin(playerAccounts, eq(bindings.playerAccountId, playerAccounts.id))
+        .where(eq(bindings.status, "active"));
+
+      const activeSessions = await db.select({ memberOpenId: qqSessions.memberOpenId }).from(qqSessions);
+      const sessionCountByMember = new Map<string, number>();
+      for (const s of activeSessions) {
+        sessionCountByMember.set(s.memberOpenId, (sessionCountByMember.get(s.memberOpenId) ?? 0) + 1);
+      }
+
+      const items = rows.map(({ claim, invite, account }) => {
+        const status = (claim.status === "pending_confirmation" && claim.expiresAt <= timestamp ? "expired" : claim.status) as "pending_confirmation" | "pending_review" | "approved" | "rejected" | "expired";
+
+        const targetBindingRow = account ? activeBindings.find((b) => b.binding.playerAccountId === account.id) : undefined;
+        const targetAccountBinding = targetBindingRow
+          ? { bindingId: targetBindingRow.binding.id, memberOpenId: targetBindingRow.binding.memberOpenId, ...(targetBindingRow.binding.groupOpenId ? { groupOpenId: targetBindingRow.binding.groupOpenId } : {}) }
+          : undefined;
+
+        const qqBindingRows = claim.memberOpenId ? activeBindings.filter((b) => b.binding.memberOpenId === claim.memberOpenId) : [];
+        const qqBoundAccounts = qqBindingRows
+          .filter((b): b is typeof b & { account: NonNullable<typeof b.account> } => b.account !== null)
+          .map((b) => ({ playerAccountId: b.account.id, playerName: b.account.playerName, playerId: b.account.playerId }));
+
+        const revokingBindingMap = new Map<string, typeof activeBindings[number]>();
+        if (targetBindingRow) {
+          revokingBindingMap.set(targetBindingRow.binding.id, targetBindingRow);
+        }
+        for (const b of qqBindingRows) {
+          revokingBindingMap.set(b.binding.id, b);
+        }
+        const revokingBindings = Array.from(revokingBindingMap.values());
+        const revokingBindingCount = revokingBindings.length;
+
+        const revokingMemberOpenIds = new Set(revokingBindings.map((b) => b.binding.memberOpenId));
+        let invalidatingSessionCount = 0;
+        for (const mId of revokingMemberOpenIds) {
+          invalidatingSessionCount += sessionCountByMember.get(mId) ?? 0;
+        }
+
+        const hasTargetBinding = Boolean(targetAccountBinding && targetAccountBinding.memberOpenId !== claim.memberOpenId);
+        const hasQqBinding = Boolean(claim.memberOpenId && qqBoundAccounts.some((acc) => acc.playerAccountId !== account?.id));
+
+        let operationType: "initial_binding" | "rebind_account" | "qq_transfer" | "conflict" = "initial_binding";
+        if (hasTargetBinding && hasQqBinding) {
+          operationType = "conflict";
+        } else if (hasTargetBinding) {
+          operationType = "rebind_account";
+        } else if (hasQqBinding) {
+          operationType = "qq_transfer";
+        }
+
+        return {
+          claimId: claim.id,
+          playerName: claim.playerName,
+          playerId: claim.playerId,
+          status,
+          createdAt: claim.createdAt,
+          ...(claim.memberOpenId ? { memberOpenId: claim.memberOpenId } : {}),
+          ...(claim.groupOpenId ? { groupOpenId: claim.groupOpenId } : {}),
+          invitedBy: invite.createdBy,
+          ...(account ? { affectedPlayerAccountId: account.id } : {}),
+          ...(targetAccountBinding ? { targetAccountBinding } : {}),
+          ...(qqBoundAccounts.length > 0 ? { qqBoundAccounts } : {}),
+          revokingBindingCount,
+          invalidatingSessionCount,
+          operationType,
+        };
+      });
+
+      return { contractVersion: "1" as const, items };
     },
 
     async decideAdminBindingClaim(input, auth, idempotencyKey) {

@@ -57,7 +57,25 @@ export const bindingInviteRedeemResponseSchema = z.object({ contractVersion, cla
 export const bindingClaimStatusResponseSchema = z.object({ contractVersion, status: z.enum(["pending_confirmation", "pending_review", "approved", "rejected", "expired"]), expiresAt: z.number().int() });
 export const qqBindingClaimVerifyRequestSchema = z.object({ contractVersion, provider: z.literal("qq"), code: inviteClaimCode, groupOpenId: externalId, memberOpenId: externalId, messageId: externalId });
 export const adminBindingClaimDecisionRequestSchema = z.object({ contractVersion, decision: z.enum(["approved", "rejected"]), reason: z.string().trim().max(256).optional() });
-export const adminBindingClaimSchema = z.object({ claimId: z.string().uuid(), playerName: z.string(), playerId, status: z.enum(["pending_confirmation", "pending_review", "approved", "rejected", "expired"]), createdAt: z.number().int(), memberOpenId: externalId.optional(), groupOpenId: externalId.optional(), invitedBy: z.string(), affectedPlayerAccountId: z.string().uuid().optional() });
+export const adminBindingClaimOperationTypeSchema = z.enum(["initial_binding", "rebind_account", "qq_transfer", "conflict"]);
+export const targetAccountBindingSchema = z.object({ bindingId: z.string().uuid(), memberOpenId: externalId, groupOpenId: externalId.optional() });
+export const qqBoundAccountSchema = z.object({ playerAccountId: z.string().uuid(), playerName: z.string(), playerId });
+export const adminBindingClaimSchema = z.object({
+  claimId: z.string().uuid(),
+  playerName: z.string(),
+  playerId,
+  status: z.enum(["pending_confirmation", "pending_review", "approved", "rejected", "expired"]),
+  createdAt: z.number().int(),
+  memberOpenId: externalId.optional(),
+  groupOpenId: externalId.optional(),
+  invitedBy: z.string(),
+  affectedPlayerAccountId: z.string().uuid().optional(),
+  targetAccountBinding: targetAccountBindingSchema.optional(),
+  qqBoundAccounts: z.array(qqBoundAccountSchema).optional(),
+  revokingBindingCount: z.number().int().nonnegative().optional(),
+  invalidatingSessionCount: z.number().int().nonnegative().optional(),
+  operationType: adminBindingClaimOperationTypeSchema.optional(),
+});
 export const adminBindingClaimListResponseSchema = z.object({ contractVersion, items: z.array(adminBindingClaimSchema) });
 
 export const qqLoginAttemptRequestSchema = z.object({ contractVersion, provider: z.literal("qq") });
@@ -426,6 +444,9 @@ export type BindingInviteRedeemResponse = z.infer<typeof bindingInviteRedeemResp
 export type BindingClaimStatusResponse = z.infer<typeof bindingClaimStatusResponseSchema>;
 export type QqBindingClaimVerifyRequest = z.infer<typeof qqBindingClaimVerifyRequestSchema>;
 export type AdminBindingClaimDecisionRequest = z.infer<typeof adminBindingClaimDecisionRequestSchema>;
+export type AdminBindingClaimOperationType = z.infer<typeof adminBindingClaimOperationTypeSchema>;
+export type AdminBindingClaim = z.infer<typeof adminBindingClaimSchema>;
+export type AdminBindingClaimListResponse = z.infer<typeof adminBindingClaimListResponseSchema>;
 export type QqLoginAttemptRequest = z.infer<typeof qqLoginAttemptRequestSchema>;
 export type QqLoginAttemptResponse = z.infer<typeof qqLoginAttemptResponseSchema>;
 export type QqLoginStatusResponse = z.infer<typeof qqLoginStatusResponseSchema>;
