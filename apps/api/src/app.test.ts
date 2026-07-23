@@ -4,6 +4,14 @@ import { createApp, type RuntimeEnv } from "./app";
 
 const auth = async () => ({ actorType: "service" as const, subject: "qqbot", roles: ["channel:write"], provider: "test" });
 const services: PlatformServices = {
+  createReleaseDraft: async () => ({ contractVersion: "1", draftId: "00000000-0000-0000-0000-000000000010", name: "test", status: "open", createdAt: 1, updatedAt: 1 }),
+  putReleaseDraftItem: async () => ({ contractVersion: "1", itemId: "00000000-0000-0000-0000-000000000011", draftId: "00000000-0000-0000-0000-000000000010", contentType: "event", contentId: "event.test", operation: "upsert" }),
+  createReleaseChangeSet: async () => ({ contractVersion: "1", changeSetId: "00000000-0000-0000-0000-000000000012", draftId: "00000000-0000-0000-0000-000000000010", name: "test", itemCount: 1, status: "open" }),
+  createReleaseCandidate: async () => ({ contractVersion: "1", candidateId: "00000000-0000-0000-0000-000000000013", changeSetId: "00000000-0000-0000-0000-000000000012", sourceVersion: "candidate-test", snapshotHash: "a".repeat(64), status: "candidate", createdAt: 1 }),
+  getReleaseCandidate: async () => ({ contractVersion: "1", candidateId: "00000000-0000-0000-0000-000000000013", changeSetId: "00000000-0000-0000-0000-000000000012", sourceVersion: "candidate-test", snapshotHash: "a".repeat(64), status: "candidate", createdAt: 1, snapshot: { schemaVersion: 1, candidateId: "00000000-0000-0000-0000-000000000013", baseReleaseId: null, sourceVersion: "candidate-test", generatedAt: 1, items: [], snapshotHash: "a".repeat(64) } }),
+  startReleaseBuild: async () => ({ contractVersion: "1", buildId: "00000000-0000-0000-0000-000000000014", candidateId: "00000000-0000-0000-0000-000000000013", releaseId: "00000000-0000-0000-0000-000000000015", status: "queued" }),
+  receiveReleaseBuildResult: async (input) => ({ contractVersion: "1", buildId: input.buildId, candidateId: input.candidateId, releaseId: "00000000-0000-0000-0000-000000000015", status: input.status }),
+  getReleaseOverview: async () => ({ contractVersion: "1", current: null, next: null, drafts: [], releases: [] }),
   listRandomEvents: async () => [],
   getRandomEvent: async () => null,
   createAdminRandomEvent: async () => { throw new Error("CHALLENGE_NOT_FOUND"); },
@@ -79,6 +87,19 @@ const app = createApp({
 const env = {} as RuntimeEnv;
 
 describe("API", () => {
+  it("protects Bastion candidate routes and accepts a structured build result", async () => {
+    const internalApp = createApp({ authenticate: async () => null, services: () => services });
+    const unauthorized = await internalApp.request("http://localhost/v1/internal/bastion/candidates/candidate-1", {}, { ...env, BASTION_BUILD_TOKEN: "bastion-token" });
+    expect(unauthorized.status).toBe(401);
+    const response = await internalApp.request("http://localhost/v1/internal/bastion/build-results", {
+      method: "POST",
+      headers: { authorization: "Bearer bastion-token", "content-type": "application/json" },
+      body: JSON.stringify({ contractVersion: "1", buildId: "build-1", candidateId: "candidate-1", status: "succeeded", bastionCommitSha: "abc123", snapshotHash: "a".repeat(64), artifactRefs: ["build/main.ow"], warnings: [], errors: [] }),
+    }, { ...env, BASTION_BUILD_TOKEN: "bastion-token" });
+    expect(response.status).toBe(200);
+    expect((await response.json() as { status: string }).status).toBe("succeeded");
+  });
+
   it("lists public random events without development records", async () => {
     const eventApp = createApp({ authenticate: auth, services: () => ({ ...services, listRandomEvents: async () => [{ eventId: "event.test", name: "稳住", category: "增益", rarity: "R", description: "测试事件", durationSeconds: 60, cooldownSeconds: null, weight: 1, appearanceProbability: .1, categoryProbability: .4, groupTotalWeight: 1, groupSize: 1, failureProbability: null, guaranteeProbability: null, globalAppearanceProbability: .1, gameVersion: "5.0", effectTags: ["护盾"], releaseStatus: "implemented", archived: false, challenges: [] }] }) });
     const response = await eventApp.request("http://localhost/v1/events", {}, env);

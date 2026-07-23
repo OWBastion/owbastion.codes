@@ -30,6 +30,7 @@ import type {
   RandomEvent, RandomEventListResponse, AdminRandomEventCreateRequest, AdminRandomEventUpdateRequest, AdminRandomEventImportRequest,
   PlayerUploadSessionRequest,
   PlayerUploadSessionResponse,
+  ReleaseDraftCreateRequest, ReleaseDraftItemRequest, ReleaseChangeSetCreateRequest, ReleaseBuildResultRequest, ReleaseOverviewResponse, ReleaseSnapshot,
 } from "@owbastion/contracts";
 
 export type LocalDevAccount = {
@@ -47,6 +48,14 @@ export type AuthContext = {
 };
 
 export type PlatformServices = {
+  createReleaseDraft(input: ReleaseDraftCreateRequest, auth: AuthContext, idempotencyKey: string): Promise<{ contractVersion: "1"; draftId: string; name: string; status: "open"; createdAt: number; updatedAt: number }>;
+  putReleaseDraftItem(input: ReleaseDraftItemRequest & { draftId: string }, auth: AuthContext, idempotencyKey: string): Promise<{ contractVersion: "1"; itemId: string; draftId: string; contentType: string; contentId: string; operation: string }>;
+  createReleaseChangeSet(input: ReleaseChangeSetCreateRequest, auth: AuthContext, idempotencyKey: string): Promise<{ contractVersion: "1"; changeSetId: string; draftId: string; name: string; itemCount: number; status: "open" }>;
+  createReleaseCandidate(input: { changeSetId: string }, auth: AuthContext, idempotencyKey: string): Promise<{ contractVersion: "1"; candidateId: string; changeSetId: string; sourceVersion: string; snapshotHash: string; status: "candidate"; createdAt: number }>;
+  getReleaseCandidate(input: { candidateId: string }): Promise<{ contractVersion: "1"; candidateId: string; changeSetId: string; sourceVersion: string; snapshotHash: string; status: string; createdAt: number; snapshot: ReleaseSnapshot }>;
+  startReleaseBuild(input: { candidateId: string }, auth: AuthContext, idempotencyKey: string): Promise<{ contractVersion: "1"; buildId: string; candidateId: string; releaseId: string; status: "queued" }>;
+  receiveReleaseBuildResult(input: ReleaseBuildResultRequest): Promise<{ contractVersion: "1"; buildId: string; candidateId: string; releaseId: string; status: "succeeded" | "failed" }>;
+  getReleaseOverview(): Promise<ReleaseOverviewResponse>;
   listRandomEvents(input: { query?: string; category?: string; rarity?: string; status?: "implemented" | "removed"; includeArchived?: boolean }): Promise<RandomEvent[]>;
   getRandomEvent(input: { eventId: string; includeArchived?: boolean }): Promise<RandomEvent | null>;
   createAdminRandomEvent(input: AdminRandomEventCreateRequest, auth: AuthContext, idempotencyKey: string): Promise<RandomEvent>;

@@ -49,6 +49,9 @@ Configure these repository or production-environment secrets:
 | `QQBOT_POLICY_WEBHOOK_URL` | QQBot's internal group-policy callback URL |
 | `QQBOT_POLICY_WEBHOOK_SECRET` | HMAC secret for the group-policy callback |
 | `OCRKIT_API_TOKEN` | Bearer credential shared only with OCRKit |
+| `BASTION_BUILD_TOKEN` | Service credential used by Bastion to fetch Candidates and report build results |
+| `BASTION_BUILD_DISPATCH_TOKEN` | GitHub token used by the Worker to dispatch the Bastion Candidate workflow |
+| `BASTION_BUILD_DISPATCH_URL` | Bastion repository workflow-dispatch endpoint used by the Worker |
 | `BINDING_INVITE_CODE_ENCRYPTION_KEY` | AES-GCM key material for re-copyable invitation codes; generate with `openssl rand -base64 32` and retain it while invitations remain active |
 | `ADMIN_BATTLETAG` | Full BattleTag, such as `TestPlayer#1234`, that receives administrator access during deployment |
 
@@ -88,6 +91,13 @@ reset, delete, or roll back D1 or KV data.
 Set `OCRKIT_BASE_URL` in `wrangler.toml` to the public OCRKit hostname. The Worker sends
 `OCRKIT_API_TOKEN` only to that service as a Bearer credential; browser and QQBot clients do
 not call OCRKit directly.
+
+Set `BASTION_BUILD_DISPATCH_URL` to the Bastion repository's workflow-dispatch API
+endpoint and configure the repository variable `OWBASTION_PLATFORM_BASE_URL` in
+the Bastion repository. The Candidate workflow receives opaque build/candidate
+IDs plus the selected code ref and snapshot hash, fetches the immutable Candidate
+with `BASTION_BUILD_TOKEN`, and posts its structured result back to the internal
+platform endpoint. It does not edit Bastion source or create pull requests.
 
 The Worker is deployed to the Git-managed Custom Domain
 `https://api.owbastion.com`. The workflow does not automatically verify the

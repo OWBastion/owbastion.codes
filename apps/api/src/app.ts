@@ -17,6 +17,7 @@ import {
   adminRandomEventCreateRequestSchema, adminRandomEventUpdateRequestSchema, adminRandomEventImportRequestSchema,
   playerUploadSessionRequestSchema,
   adminBindingInviteRequestSchema, adminBindingInviteBatchRequestSchema, adminBindingInviteRevokeRequestSchema, bindingInviteRedeemRequestSchema, adminBindingClaimDecisionRequestSchema,
+  releaseDraftCreateRequestSchema, releaseDraftItemRequestSchema, releaseChangeSetCreateRequestSchema, releaseBuildResultRequestSchema,
 } from "@owbastion/contracts";
 import type { Authenticator, PlatformServices } from "@owbastion/domain";
 
@@ -37,6 +38,9 @@ export type RuntimeEnv = {
   QQBOT_POLICY_WEBHOOK_URL?: string;
   QQBOT_POLICY_WEBHOOK_SECRET?: string;
   BINDING_INVITE_CODE_ENCRYPTION_KEY?: string;
+  BASTION_BUILD_TOKEN?: string;
+  BASTION_BUILD_DISPATCH_URL?: string;
+  BASTION_BUILD_DISPATCH_TOKEN?: string;
 };
 
 type AppDependencies = {
@@ -115,6 +119,13 @@ export const createApp = (dependencies: AppDependencies) => {
     return { sessionToken, player };
   };
 
+  const requireBastion = (c: any) => {
+    const token = c.env.BASTION_BUILD_TOKEN;
+    const authorization = c.req.header("authorization");
+    if (!token || authorization !== `Bearer ${token}`) return { error: errorResponse(c, 401, "UNAUTHENTICATED", "Bastion authentication is required") };
+    return { auth: { actorType: "service" as const, subject: "bastion", roles: ["bastion:build"], provider: "bastion-service-token" } };
+  };
+
   app.post("/v1/public/binding-invites/redeem", async (c) => {
     allowPortal(c);
     const parsed = bindingInviteRedeemRequestSchema.safeParse(await parseBody(c.req.raw));
@@ -141,6 +152,67 @@ export const createApp = (dependencies: AppDependencies) => {
     const idempotencyKey = c.req.header("idempotency-key"); if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
     const parsed = adminBindingInviteRequestSchema.safeParse(await parseBody(c.req.raw)); if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
     return c.json(await dependencies.services(c.env).createAdminBindingInvite(parsed.data, access.auth!, idempotencyKey), 201);
+  });
+
+  app.get("/v1/admin/releases/overview", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    return c.json(await dependencies.services(c.env).getReleaseOverview());
+  });
+
+  app.post("/v1/admin/releases/drafts", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key"); if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    const parsed = releaseDraftCreateRequestSchema.safeParse(await parseBody(c.req.raw)); if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    return c.json(await dependencies.services(c.env).createReleaseDraft(parsed.data, access.auth!, idempotencyKey), 201);
+  });
+
+  app.put("/v1/admin/releases/drafts/:draftId/items", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key"); if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    const parsed = releaseDraftItemRequestSchema.safeParse(await parseBody(c.req.raw)); if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    try { return c.json(await dependencies.services(c.env).putReleaseDraftItem({ ...parsed.data, draftId: c.req.param("draftId") }, access.auth!, idempotencyKey), 201); }
+    catch (error) { if (error instanceof Error && error.message === "DRAFT_NOT_FOUND") return errorResponse(c, 404, "DRAFT_NOT_FOUND", "The draft does not exist"); throw error; }
+  });
+
+  app.post("/v1/admin/releases/change-sets", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key"); if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    const parsed = releaseChangeSetCreateRequestSchema.safeParse(await parseBody(c.req.raw)); if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    try { return c.json(await dependencies.services(c.env).createReleaseChangeSet(parsed.data, access.auth!, idempotencyKey), 201); }
+    catch (error) { const code = error instanceof Error ? error.message : "CHANGE_SET_FAILED"; if (["DRAFT_NOT_FOUND", "DRAFT_ITEMS_NOT_FOUND"].includes(code)) return errorResponse(c, 422, code, "The draft items are invalid"); throw error; }
+  });
+
+  app.post("/v1/admin/releases/change-sets/:changeSetId/candidate", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key"); if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    try { return c.json(await dependencies.services(c.env).createReleaseCandidate({ changeSetId: c.req.param("changeSetId") }, access.auth!, idempotencyKey), 201); }
+    catch (error) { const code = error instanceof Error ? error.message : "CANDIDATE_FAILED"; if (["CHANGE_SET_NOT_FOUND", "CHANGE_SET_EMPTY"].includes(code)) return errorResponse(c, 422, code, "The change set cannot produce a candidate"); throw error; }
+  });
+
+  app.get("/v1/admin/releases/candidates/:candidateId", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    try { return c.json(await dependencies.services(c.env).getReleaseCandidate({ candidateId: c.req.param("candidateId") })); }
+    catch (error) { if (error instanceof Error && error.message === "CANDIDATE_NOT_FOUND") return errorResponse(c, 404, "CANDIDATE_NOT_FOUND", "The candidate does not exist"); throw error; }
+  });
+
+  app.post("/v1/admin/releases/candidates/:candidateId/build", async (c) => {
+    const access = await requireMaintainer(c); if (access.error) return access.error;
+    const idempotencyKey = c.req.header("idempotency-key"); if (!idempotencyKey) return errorResponse(c, 422, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key is required");
+    try { return c.json(await dependencies.services(c.env).startReleaseBuild({ candidateId: c.req.param("candidateId") }, access.auth!, idempotencyKey), 201); }
+    catch (error) { const code = error instanceof Error ? error.message : "BUILD_START_FAILED"; if (["BUILD_ALREADY_RUNNING", "CANDIDATE_NOT_BUILDABLE", "BUILD_DISPATCH_FAILED"].includes(code)) return errorResponse(c, code === "BUILD_DISPATCH_FAILED" ? 503 : 409, code, "The Bastion build could not be started"); throw error; }
+  });
+
+  app.get("/v1/internal/bastion/candidates/:candidateId", async (c) => {
+    const access = requireBastion(c); if (access.error) return access.error;
+    try { return c.json(await dependencies.services(c.env).getReleaseCandidate({ candidateId: c.req.param("candidateId") })); }
+    catch (error) { if (error instanceof Error && error.message === "CANDIDATE_NOT_FOUND") return errorResponse(c, 404, "CANDIDATE_NOT_FOUND", "The candidate does not exist"); throw error; }
+  });
+
+  app.post("/v1/internal/bastion/build-results", async (c) => {
+    const access = requireBastion(c); if (access.error) return access.error;
+    const parsed = releaseBuildResultRequestSchema.safeParse(await parseBody(c.req.raw)); if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
+    try { return c.json(await dependencies.services(c.env).receiveReleaseBuildResult(parsed.data)); }
+    catch (error) { const code = error instanceof Error ? error.message : "BUILD_RESULT_FAILED"; if (["BUILD_NOT_FOUND", "BUILD_SNAPSHOT_MISMATCH", "BUILD_RESULT_CONFLICT"].includes(code)) return errorResponse(c, 409, code, "The Bastion build result cannot be applied"); throw error; }
   });
 
   app.post("/v1/admin/binding-invites/batch", async (c) => {

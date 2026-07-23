@@ -1,8 +1,75 @@
 import { z } from "zod";
 
 export const contractVersion = z.literal("1");
-
 const externalId = z.string().trim().min(1).max(256);
+
+const releaseContentTypeSchema = z.enum(["event", "map", "title", "challenge"]);
+const releaseOperationSchema = z.enum(["upsert", "retire", "delete"]);
+const releaseContentItemSchema = z.object({
+  contentType: releaseContentTypeSchema,
+  contentId: externalId,
+  operation: releaseOperationSchema,
+  data: z.record(z.string(), z.unknown()),
+});
+
+export const releaseSnapshotSchema = z.object({
+  schemaVersion: z.literal(1),
+  candidateId: externalId,
+  baseReleaseId: externalId.nullable(),
+  sourceVersion: z.string().trim().min(1).max(64),
+  generatedAt: z.number().int().positive(),
+  items: z.array(releaseContentItemSchema).max(10000),
+  snapshotHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
+export const releaseDraftCreateRequestSchema = z.object({
+  contractVersion,
+  name: z.string().trim().min(1).max(128),
+});
+
+export const releaseDraftItemRequestSchema = z.object({
+  contractVersion,
+  contentType: releaseContentTypeSchema,
+  contentId: externalId,
+  operation: releaseOperationSchema,
+  data: z.record(z.string(), z.unknown()),
+});
+
+export const releaseChangeSetCreateRequestSchema = z.object({
+  contractVersion,
+  draftId: externalId,
+  name: z.string().trim().min(1).max(128),
+  itemIds: z.array(externalId).min(1).max(10000),
+});
+
+export const releaseBuildResultRequestSchema = z.object({
+  contractVersion,
+  buildId: externalId,
+  candidateId: externalId,
+  status: z.enum(["succeeded", "failed"]),
+  bastionCommitSha: z.string().trim().min(1).max(128),
+  snapshotHash: z.string().regex(/^[a-f0-9]{64}$/),
+  artifactRefs: z.array(z.string().trim().min(1).max(1024)).max(32),
+  warnings: z.array(z.string().trim().max(2048)).max(100),
+  errors: z.array(z.string().trim().max(2048)).max(100),
+});
+
+export const releaseBuildResponseSchema = z.object({
+  contractVersion,
+  buildId: externalId,
+  candidateId: externalId,
+  releaseId: externalId,
+  status: z.enum(["queued", "running", "succeeded", "failed"]),
+});
+
+export const releaseOverviewResponseSchema = z.object({
+  contractVersion,
+  current: z.object({ releaseId: externalId, candidateId: externalId, sourceVersion: z.string(), bastionCommitSha: z.string().nullable(), activatedAt: z.number().int().nullable() }).nullable(),
+  next: z.object({ candidateId: externalId, sourceVersion: z.string(), snapshotHash: z.string(), status: z.enum(["candidate", "queued", "running", "succeeded", "failed"]) }).nullable(),
+  drafts: z.array(z.object({ draftId: externalId, name: z.string(), status: z.string(), updatedAt: z.number().int() })),
+  releases: z.array(z.object({ releaseId: externalId, candidateId: externalId, sourceVersion: z.string(), status: z.string(), bastionCommitSha: z.string().nullable(), activatedAt: z.number().int().nullable(), createdAt: z.number().int() })),
+});
+
 const playerId = z.string().regex(/^\d{1,10}$/);
 const retirementVersion = z.string().regex(/^\d{2}\.\d{4}\.[1-9]\d*$/);
 const storedRetirementVersion = z.string().trim().min(1).max(64);
@@ -494,3 +561,11 @@ export type PlayerUploadCompleteRequest = z.infer<typeof playerUploadCompleteReq
 export type AdminSubmission = z.infer<typeof adminSubmissionSchema>;
 export type AdminSubmissionListResponse = z.infer<typeof adminSubmissionListResponseSchema>;
 export type AdminSubmissionReviewRequest = z.infer<typeof adminSubmissionReviewRequestSchema>;
+export type ReleaseContentItem = z.infer<typeof releaseContentItemSchema>;
+export type ReleaseSnapshot = z.infer<typeof releaseSnapshotSchema>;
+export type ReleaseDraftCreateRequest = z.infer<typeof releaseDraftCreateRequestSchema>;
+export type ReleaseDraftItemRequest = z.infer<typeof releaseDraftItemRequestSchema>;
+export type ReleaseChangeSetCreateRequest = z.infer<typeof releaseChangeSetCreateRequestSchema>;
+export type ReleaseBuildResultRequest = z.infer<typeof releaseBuildResultRequestSchema>;
+export type ReleaseBuildResponse = z.infer<typeof releaseBuildResponseSchema>;
+export type ReleaseOverviewResponse = z.infer<typeof releaseOverviewResponseSchema>;

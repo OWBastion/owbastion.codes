@@ -1,12 +1,14 @@
 import { count, desc, eq, and, gt, like, or, inArray, isNull, ne, lt, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { AuthContext, PlatformServices } from "@owbastion/domain";
+import { challengeSchema, mapSchema, randomEventSchema, titleSchema } from "@owbastion/contracts";
 import type { AdminChallenge, AdminChallengeUpdateRequest, AdminCatalogTitleUpdateRequest, AdminMapMetadataUpdateRequest, AdminRandomEventCreateRequest, AdminRandomEventImportRequest, AdminRandomEventUpdateRequest, Challenge, Map, QqBindingRequest, QqGroupAccessRequest, QqLoginAttemptRequest, QqLoginVerifyRequest, RandomEvent, SubmissionRequest, Title } from "@owbastion/contracts";
 import { achievementChallenges, attachments, auditEvents, bindingClaims, bindingInvites, bindings, catalogImports, historicalTitleGrants, identities, idempotencyKeys, mapMetadata, mapTitleRewards, maps, ocrResults, playerAccounts, playerTitleGrants, qqGroupAccess, qqGroupPolicyOutbox, qqLoginAttempts, qqSessions, randomEventImports, randomEventMapChallenges, randomEvents, randomEventTitleChallenges, submissionReviews, submissions, titleCatalog, titleChallenges, uploadSessions } from "./schema";
 import { userEvidenceObjectKey } from "./object-key";
 import { matchOcrResult } from "./ocr-match";
 import { assessOcrQuality, type OcrResponse } from "./ocr-response";
 import { catalogCacheKey, clearCatalogCache, withCatalogCache } from "./catalog-cache";
+import { createReleasePlaneServices } from "./release-plane";
 
 const now = () => Date.now();
 const loginTtlMs = 2 * 60 * 1000;
@@ -156,8 +158,43 @@ const persistEvidence = async (db: ReturnType<typeof drizzle>, bucket: R2Bucket,
   return objectKey;
 };
 
-export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrkitApiToken?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string, cache?: KVNamespace, qqPolicyQueue?: Queue, bindingInviteCodeEncryptionKey?: string): PlatformServices => {
+export const createPlatformServices = (database: D1Database, evidenceBucket?: R2Bucket, uploadOrigin = "https://api.owbastion.com", ocrkitBaseUrl?: string, ocrkitApiToken?: string, ocrQueue?: Queue, ocrkitEvidenceBucket?: string, cache?: KVNamespace, qqPolicyQueue?: Queue, bindingInviteCodeEncryptionKey?: string, dispatchBuild?: (payload: { buildId: string; candidateId: string; releaseId: string; snapshotHash: string; codeRef: string }) => Promise<void>): PlatformServices => {
   const db = drizzle(database);
+  const releasePlane = createReleasePlaneServices(database, dispatchBuild);
+
+  const getCurrentSnapshot = async () => {
+    try {
+      return await releasePlane.getCurrentReleaseSnapshot();
+    } catch {
+      // Keep the legacy catalog available while migration 0034 is rolling out.
+      return null;
+    }
+  };
+
+  const releaseItems = async (contentType: "event" | "map" | "title" | "challenge") => {
+    const snapshot = await getCurrentSnapshot();
+    return snapshot?.items.filter((item) => item.contentType === contentType && item.operation === "upsert") ?? null;
+  };
+
+  const parseReleaseTitle = (item: { contentId: string; data: Record<string, unknown> }): Title | null => {
+    const value = titleSchema.safeParse({ ...item.data, titleKey: item.data.titleKey ?? item.contentId.replace(/^title\./, ""), iconUrl: item.data.iconUrl ?? null });
+    return value.success ? value.data : null;
+  };
+
+  const parseReleaseMap = (item: { contentId: string; data: Record<string, unknown> }): Map | null => {
+    const value = mapSchema.safeParse({ ...item.data, mapId: item.data.mapId ?? item.contentId, coverUrl: item.data.coverUrl ?? null, backgroundUrl: item.data.backgroundUrl ?? null });
+    return value.success ? value.data : null;
+  };
+
+  const parseReleaseEvent = (item: { contentId: string; data: Record<string, unknown> }): RandomEvent | null => {
+    const value = randomEventSchema.safeParse({ ...item.data, eventId: item.data.eventId ?? item.contentId, archived: item.data.archived ?? false, challenges: item.data.challenges ?? [] });
+    return value.success ? value.data : null;
+  };
+
+  const parseReleaseChallenge = (item: { contentId: string; data: Record<string, unknown> }): Challenge | null => {
+    const value = challengeSchema.safeParse({ ...item.data, challengeId: item.data.challengeId ?? item.contentId });
+    return value.success ? value.data : null;
+  };
 
   const dispatchPendingQqGroupPolicyEvents = async () => {
     if (!qqPolicyQueue) return;
@@ -177,6 +214,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
   };
 
   const getCatalogRevision = async (): Promise<string | undefined> => {
+    const currentSnapshot = await getCurrentSnapshot();
+    if (currentSnapshot) return `release:${currentSnapshot.snapshotHash}`;
     try {
       const record = await db
         .select({
@@ -200,6 +239,13 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
   // Fetch all currently public challenges in two parallel queries.
   // Used by both publicEventChallenges (single-event path) and the batch list path.
   const fetchAllPublicChallenges = async (): Promise<Challenge[]> => {
+    const snapshotItems = await releaseItems("challenge");
+    if (snapshotItems?.length) {
+      return snapshotItems.flatMap((item) => {
+        const challenge = parseReleaseChallenge(item);
+        return challenge && (challenge.status === "active" || challenge.status === "sunsetting") ? [challenge] : [];
+      });
+    }
     const [mapRows, titleRows] = await Promise.all([
       db.select({ challenge: achievementChallenges, map: maps }).from(achievementChallenges).innerJoin(maps, eq(achievementChallenges.mapId, maps.id)).where(and(inArray(achievementChallenges.status, ["active", "sunsetting"]), eq(maps.status, "active"))),
       db.select({ challenge: titleChallenges, title: titleCatalog }).from(titleChallenges).innerJoin(titleCatalog, eq(titleChallenges.titleKey, titleCatalog.key)).where(and(inArray(titleChallenges.status, ["scheduled", "active", "sunsetting"]), eq(titleCatalog.scope, "global"), eq(titleCatalog.availability, "active"))),
@@ -239,6 +285,7 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
   };
 
   return {
+    ...releasePlane,
     async listRandomEvents(input) {
       const revision = await getCatalogRevision();
       const cacheKey = catalogCacheKey(`events:${encodeURIComponent(JSON.stringify({
@@ -249,6 +296,14 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
         includeArchived: input.includeArchived ?? null,
       }))}`, revision);
       return withCatalogCache(cache, cacheKey, async () => {
+        const snapshotItems = await releaseItems("event");
+        if (snapshotItems?.length) {
+          return snapshotItems.flatMap((item) => {
+            const event = parseReleaseEvent(item);
+            if (!event || (!input.includeArchived && event.archived) || (input.status && event.releaseStatus !== input.status) || (!input.includeArchived && input.status === undefined && !["implemented", "removed"].includes(event.releaseStatus)) || (input.category && event.category !== input.category) || (input.rarity && event.rarity !== input.rarity) || (input.query && !event.name.includes(input.query))) return [];
+            return [event];
+          }).sort((left, right) => left.name.localeCompare(right.name));
+        }
         const filters = [input.includeArchived ? undefined : isNull(randomEvents.archivedAt), input.status ? eq(randomEvents.releaseStatus, input.status) : input.includeArchived === undefined ? inArray(randomEvents.releaseStatus, ["implemented", "removed"]) : undefined, input.category ? eq(randomEvents.category, input.category) : undefined, input.rarity ? eq(randomEvents.rarity, input.rarity) : undefined, input.query ? like(randomEvents.name, `%${input.query}%`) : undefined].filter(Boolean) as any[];
         const rows = await db.select().from(randomEvents).where(and(...filters)).orderBy(randomEvents.name);
         if (!rows.length) return [];
@@ -270,6 +325,12 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       });
     },
     async getRandomEvent(input) {
+      const snapshotItems = await releaseItems("event");
+      if (snapshotItems?.length) {
+        const event = snapshotItems.map(parseReleaseEvent).find((item) => item?.eventId === input.eventId) ?? null;
+        if (!event || (!input.includeArchived && event.archived) || (input.includeArchived === undefined && !["implemented", "removed"].includes(event.releaseStatus))) return null;
+        return event;
+      }
       const row = await db.select().from(randomEvents).where(and(eq(randomEvents.id, input.eventId), input.includeArchived ? undefined : isNull(randomEvents.archivedAt), input.includeArchived === undefined ? inArray(randomEvents.releaseStatus, ["implemented", "removed"]) : undefined)).get();
       return row ? asRandomEvent(row) : null;
     },
@@ -306,6 +367,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     async listMaps() {
       const revision = await getCatalogRevision();
       return withCatalogCache(cache, catalogCacheKey("maps", revision), async () => {
+        const snapshotItems = await releaseItems("map");
+        if (snapshotItems?.length) return snapshotItems.flatMap((item) => { const map = parseReleaseMap(item); return map ? [map] : []; }).sort((left, right) => left.mapName.localeCompare(right.mapName));
         const rows = await db.select({ map: maps, metadata: mapMetadata }).from(maps).leftJoin(mapMetadata, eq(mapMetadata.mapId, maps.id)).where(eq(maps.status, "active")).orderBy(maps.name);
         return rows.map(({ map, metadata }): Map => ({
           mapId: map.id,
@@ -337,6 +400,8 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     async listChallenges(input) {
       const revision = await getCatalogRevision();
       return withCatalogCache(cache, catalogCacheKey(`challenges:${input?.family ?? "all"}`, revision), async () => {
+      const snapshotItems = await releaseItems("challenge");
+      if (snapshotItems?.length) return snapshotItems.flatMap(parseReleaseChallenge).filter((challenge): challenge is Challenge => { if (!challenge) return false; return (input?.family ? challenge.family === input.family : true) && (challenge.status === "active" || challenge.status === "sunsetting"); });
       const items: Challenge[] = [];
       if (!input?.family || input.family === "map") {
         const rows = await db.select({ challenge: achievementChallenges, map: maps })
@@ -571,6 +636,11 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
     async listTitles(input) {
       const revision = await getCatalogRevision();
       return withCatalogCache(cache, catalogCacheKey(`titles:${input.mapId ? encodeURIComponent(input.mapId) : "global"}`, revision), async () => {
+      const snapshotItems = await releaseItems("title");
+      if (snapshotItems?.length) {
+        const titles = snapshotItems.flatMap(parseReleaseTitle).filter((title): title is Title => { if (!title) return false; return title.availability === "active"; });
+        return input.mapId ? titles.filter((title) => title.scope === "global" || title.mapId === input.mapId) : titles.filter((title) => title.scope === "global");
+      }
       const globalRows = await db.select().from(titleCatalog).where(eq(titleCatalog.scope, "global"));
       const globalTitles: Title[] = globalRows.map((row) => ({
         titleKey: row.key,

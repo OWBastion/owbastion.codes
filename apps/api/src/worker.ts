@@ -5,9 +5,21 @@ import { createApp, type RuntimeEnv } from "./app";
 type OcrQueueMessage = { version: number; submissionId: string; objectKey: string };
 type QqPolicyQueueMessage = { version: 1; eventId: string };
 
+const bastionDispatcher = (env: RuntimeEnv) => {
+  if (!env.BASTION_BUILD_DISPATCH_URL || !env.BASTION_BUILD_DISPATCH_TOKEN) return undefined;
+  return async (payload: { buildId: string; candidateId: string; releaseId: string; snapshotHash: string; codeRef: string }) => {
+    const response = await fetch(env.BASTION_BUILD_DISPATCH_URL!, {
+      method: "POST",
+      headers: { accept: "application/vnd.github+json", authorization: `Bearer ${env.BASTION_BUILD_DISPATCH_TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify({ ref: payload.codeRef, inputs: payload }),
+    });
+    if (!response.ok) throw new Error(`BASTION_BUILD_DISPATCH_${response.status}`);
+  };
+};
+
 const app = createApp({
   authenticate: authenticatePlatformActor,
-  services: (env) => createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCRKIT_API_TOKEN, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE, env.QQ_POLICY_QUEUE, env.BINDING_INVITE_CODE_ENCRYPTION_KEY),
+  services: (env) => createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCRKIT_API_TOKEN, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE, env.QQ_POLICY_QUEUE, env.BINDING_INVITE_CODE_ENCRYPTION_KEY, bastionDispatcher(env)),
 });
 
 const policySignature = async (secret: string, timestamp: string, body: string) => {
@@ -21,7 +33,7 @@ const isQqPolicyMessage = (body: OcrQueueMessage | QqPolicyQueueMessage): body i
 export default {
   fetch: app.fetch,
   async queue(batch: MessageBatch<OcrQueueMessage | QqPolicyQueueMessage>, env: RuntimeEnv) {
-    const platform = createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCRKIT_API_TOKEN, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE, env.QQ_POLICY_QUEUE, env.BINDING_INVITE_CODE_ENCRYPTION_KEY);
+    const platform = createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCRKIT_API_TOKEN, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE, env.QQ_POLICY_QUEUE, env.BINDING_INVITE_CODE_ENCRYPTION_KEY, bastionDispatcher(env));
     for (const message of batch.messages) {
       if (isQqPolicyMessage(message.body)) {
         try {
@@ -47,6 +59,6 @@ export default {
     }
   },
   async scheduled(_controller: ScheduledController, env: RuntimeEnv) {
-    await createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCRKIT_API_TOKEN, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE, env.QQ_POLICY_QUEUE, env.BINDING_INVITE_CODE_ENCRYPTION_KEY).dispatchPendingQqGroupPolicyEvents();
+    await createPlatformServices(env.DB, env.EVIDENCE_BUCKET, env.UPLOAD_ORIGIN, env.OCRKIT_BASE_URL, env.OCRKIT_API_TOKEN, env.OCR_QUEUE, env.OCRKIT_EVIDENCE_BUCKET, env.CACHE, env.QQ_POLICY_QUEUE, env.BINDING_INVITE_CODE_ENCRYPTION_KEY, bastionDispatcher(env)).dispatchPendingQqGroupPolicyEvents();
   },
 };

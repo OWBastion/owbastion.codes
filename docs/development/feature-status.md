@@ -34,8 +34,9 @@ as `production-verified`.
 | OCRKit service authentication and production deployment | `coded` | OCRKit authenticates recognition requests with its service token; the platform Worker is the only caller; deployment uses pinned images and Cloudflare Tunnel | `ocrkit/app/api/routes_ocr.py`, `ocrkit/docker-compose.production.yml`, `ocrkit/docs/production-deployment.md`, `docs/deployment/api-github-actions.md` | Record deployed authenticated OCR request and health evidence |
 | Maintainer submission review | `coded` | Platform maintainer surface owns review decisions; OCR is evidence only | Review API, Portal admin tests, contract and database code | Add review end-to-end integration evidence |
 | Historical title migration and grants | `coded` | Bastion owns historical facts; platform records maintainer-confirmed grants | Grant API, Portal admin tests, audit/idempotency code | Add production operational verification |
+| Versioned content release plane | `coded` | Platform owns Draft/Change Set/Candidate/Release state; Bastion owns implementation, validation, and compilation | `migrations/0034_release_plane.sql`, release contracts/domain service, `/v1/internal/bastion/*`, Portal release page, Bastion candidate workflow | Add deployed platform-to-Bastion callback evidence |
 | New title issuance | `planned` | Bastion remains authoritative for released title issuance | No current implementation | Define release and grant orchestration |
-| Bastion/GitHub change orchestration | `planned` | Bastion owns source and releases; platform may orchestrate future changes | No current implementation | Define workflow, authorization, and reconciliation contracts |
+| Bastion/GitHub source change orchestration | `planned` | Bastion owns source and releases; this slice only dispatches deterministic Candidate builds | No source-edit or PR automation is implemented | Define workflow, authorization, and reconciliation contracts |
 
 No capability is currently marked `production-verified`: this repository does
 not contain traceable production end-to-end evidence for these user-facing
