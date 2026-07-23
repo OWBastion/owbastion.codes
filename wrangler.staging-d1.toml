@@ -1,0 +1,8 @@
+name = "owbastion-codes-staging-d1-check"
+compatibility_date = "2026-07-14"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "owbastion-codes-staging"
+database_id = "79288a48-e333-4f47-95b4-679652055141"
+migrations_dir = "migrations"
