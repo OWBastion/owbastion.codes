@@ -53,7 +53,7 @@ const ocrValue = (value: string | boolean | null) => value === null ? "未识别
         </UCard>
 
         <UCard class="evidence-card">
-          <template #header><div class="card-heading"><h2>提交截图</h2><span>私有证据</span></div></template>
+          <template #header><div class="card-heading"><h2>提交截图</h2></div></template>
           <img :src="evidenceUrl" :alt="`${data.mapName}的提交截图`" class="evidence-image" />
         </UCard>
 
