@@ -920,10 +920,15 @@ export const createPlatformServices = (database: D1Database, evidenceBucket?: R2
       if (!row) throw new Error("SUBMISSION_NOT_FOUND");
       if (["approved", "rejected", "resubmission_required"].includes(row.status)) throw new Error("SUBMISSION_NOT_REVIEWABLE");
       const timestamp = now();
-      await db.update(submissions).set({ status: input.decision, reviewReason: input.reason ?? null, updatedAt: timestamp }).where(eq(submissions.id, row.id));
-      await db.insert(submissionReviews).values({ id: crypto.randomUUID(), submissionId: row.id, decision: input.decision, reason: input.reason ?? null, reviewer: auth.subject, createdAt: timestamp });
-      await recordIdempotency(db, auth.subject, "submission.review", idempotencyKey, input, {});
-      await recordAudit(db, auth, "submission.review", "submission", row.id, { decision: input.decision, reason: input.reason ?? null });
+      const reviewReason = input.reason ?? null;
+      const idempotency = db.insert(idempotencyKeys).values({ id: `${auth.subject}:submission.review:${idempotencyKey}`, actorId: auth.subject, operation: "submission.review", requestHash: await hashRequest(input), responseJson: JSON.stringify({}), createdAt: timestamp });
+      const audit = db.insert(auditEvents).values({ id: crypto.randomUUID(), correlationId: crypto.randomUUID(), actorType: auth.actorType, actorId: auth.subject, operation: "submission.review", entityType: "submission", entityId: row.id, payloadJson: JSON.stringify({ decision: input.decision, reason: reviewReason }), createdAt: timestamp });
+      await db.batch([
+        db.update(submissions).set({ status: input.decision, reviewReason, updatedAt: timestamp }).where(eq(submissions.id, row.id)),
+        db.insert(submissionReviews).values({ id: crypto.randomUUID(), submissionId: row.id, decision: input.decision, reason: reviewReason, reviewer: auth.subject, createdAt: timestamp }),
+        idempotency,
+        audit,
+      ]);
     },
 
     async processOcrJob(input) {

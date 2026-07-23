@@ -715,7 +715,13 @@ export const createApp = (dependencies: AppDependencies) => {
     const parsed = adminSubmissionReviewRequestSchema.safeParse(await parseBody(c.req.raw));
     if (!parsed.success) return errorResponse(c, 422, "INVALID_REQUEST", "The request does not match contract v1");
     try { await dependencies.services(c.env).reviewSubmission({ submissionId: c.req.param("submissionId"), decision: parsed.data.decision, reason: parsed.data.reason }, access.auth!, idempotencyKey); return c.body(null, 204); }
-    catch (error) { const code = error instanceof Error ? error.message : "REVIEW_FAILED"; if (["SUBMISSION_NOT_FOUND", "SUBMISSION_NOT_REVIEWABLE"].includes(code)) return errorResponse(c, 422, code, "The submission cannot be reviewed"); if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request"); throw error; }
+    catch (error) {
+      const code = error instanceof Error ? error.message : "REVIEW_FAILED";
+      if (["SUBMISSION_NOT_FOUND", "SUBMISSION_NOT_REVIEWABLE"].includes(code)) return errorResponse(c, 422, code, "The submission cannot be reviewed");
+      if (code === "IDEMPOTENCY_CONFLICT") return errorResponse(c, 409, code, "The idempotency key was used with a different request");
+      console.error("[admin review] failed", { submissionId: c.req.param("submissionId"), requestId: requestId(c.req.raw), error: error instanceof Error ? error.stack ?? error.message : String(error) });
+      return errorResponse(c, 500, "REVIEW_FAILED", "The review could not be completed");
+    }
   });
 
   app.post("/v1/qq/bindings", async (c) => {

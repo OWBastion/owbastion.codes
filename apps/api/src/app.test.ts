@@ -592,6 +592,20 @@ describe("API", () => {
     expect(requests.at(-1)).toEqual({ statuses: ["received", "evidence_stored"], page: 1, pageSize: 50 });
   });
 
+  it("returns a traceable error when an administrative review fails unexpectedly", async () => {
+    const reviewApp = createApp({
+      authenticate: async () => ({ actorType: "user", subject: "admin", roles: ["maintainer"], provider: "test" }),
+      services: () => ({ ...services, reviewSubmission: async () => { throw new Error("D1_WRITE_FAILED"); } }),
+    });
+    const response = await reviewApp.request("http://localhost/v1/admin/submissions/submission-1/review", {
+      method: "POST",
+      headers: { "content-type": "application/json", "idempotency-key": "review-key", "x-request-id": "request-review-1" },
+      body: JSON.stringify({ contractVersion: "1", decision: "rejected" }),
+    }, env);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ contractVersion: "1", error: { code: "REVIEW_FAILED", message: "The review could not be completed", requestId: "request-review-1" } });
+  });
+
   it("keeps local development login disabled unless explicitly enabled", async () => {
     const localServices: PlatformServices = {
       ...services,

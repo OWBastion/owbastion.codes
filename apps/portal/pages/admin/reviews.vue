@@ -9,6 +9,7 @@ const submissions = ref<AdminSubmission[]>([]);
 const selected = ref<AdminSubmission | null>(null);
 const loading = ref(true);
 const errorMessage = ref("");
+const reviewError = shallowRef("");
 const page = ref(1);
 const total = ref(0);
 type OcrField = { value?: unknown; confidence?: unknown; status?: unknown };
@@ -45,13 +46,23 @@ async function load() {
   catch (error: any) { errorMessage.value = error?.data?.error?.message ?? "无法读取待核对截图，请确认当前账号有管理员权限。"; }
   finally { loading.value = false; }
 }
-async function open(submission: AdminSubmission) { selected.value = await api<AdminSubmission>(`/v1/submissions/${submission.submissionId}`); }
+async function open(submission: AdminSubmission) { reviewError.value = ""; selected.value = await api<AdminSubmission>(`/v1/submissions/${submission.submissionId}`); }
 async function review(decision: "approved" | "rejected" | "resubmission_required") {
   if (!selected.value) return;
-  await api(`/v1/submissions/${selected.value.submissionId}/review`, { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: { contractVersion: "1", decision } });
-  const toast = useToast();
-  toast.add({ title: decision === "approved" ? "审核已批准" : decision === "rejected" ? "审核已拒绝" : "已要求重新提交", color: "success" });
-  close(); await load();
+  reviewError.value = "";
+  const submissionId = selected.value.submissionId;
+  try {
+    await api(`/v1/submissions/${submissionId}/review`, { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() }, body: { contractVersion: "1", decision } });
+    const toast = useToast();
+    toast.add({ title: decision === "approved" ? "审核已批准" : decision === "rejected" ? "审核已拒绝" : "已要求重新提交", color: "success" });
+    close(); await load();
+  } catch (error: any) {
+    const detail = error?.data?.error;
+    const code = detail?.code ?? (error?.statusCode ? `HTTP_${error.statusCode}` : "NETWORK_ERROR");
+    const requestId = detail?.requestId;
+    reviewError.value = `审核提交失败（${code}）${requestId ? `，请求编号：${requestId}` : "，请查看服务端日志。"}`;
+    console.error("[admin review] failed", { submissionId, decision, code, requestId, statusCode: error?.statusCode, message: detail?.message ?? error?.message });
+  }
 }
 function close() { selected.value = null; }
 onMounted(() => { void load(); });
@@ -67,7 +78,7 @@ onMounted(() => { void load(); });
       <template #updatedAt-cell="{ row }"><span class="table-meta">{{ formatTime(row.original.updatedAt) }}</span></template>
       <template #actions-cell="{ row }"><UButton label="查看" color="neutral" variant="link" @click="open(row.original)" /></template>
     </AdminDataTable><UPagination v-model:page="page" :total="total" :items-per-page="20" class="pagination" @update:page="load" /></section>
-    <USlideover v-model:open="panelOpen" :title="selected ? `${selected.mapName} · ${selected.difficulty}` : ''"><template #body><section v-if="selected" class="admin-detail review-detail"><h2>{{ selected.mapName }} · {{ selected.difficulty }}</h2><p class="admin-detail__meta">{{ selected.playerName }} · {{ formatStatus(selected.status) }}</p><img class="evidence" :src="`/api/admin/evidence/${selected.submissionId}`" alt="玩家提交的挑战截图" /><section v-if="ocrPayload" class="ocr-summary" aria-label="OCR 识别结果"><h3>识别结果</h3><dl><div v-for="[name, field] in ocrFields" :key="name"><dt>{{ ocrLabels[name] }}</dt><dd>{{ ocrValue(field.value ?? ocrPayload.data?.[name]) }} <small>{{ ocrConfidence(field.confidence) }} · {{ field.status ?? 'unknown' }}</small></dd></div></dl><p v-if="Array.isArray(ocrPayload.warnings) && ocrPayload.warnings.length" class="ocr-warnings">告警：{{ ocrPayload.warnings.join('、') }}</p><p class="ocr-meta">模型 {{ ocrPayload.model_version ?? '未知' }} · 请求 {{ ocrPayload.request_id ?? '未知' }}</p><details><summary>查看原始 OCR 响应</summary><pre class="ocr">{{ JSON.stringify(ocrPayload, null, 2) }}</pre></details></section><div v-if="!isDecisionComplete(selected.status)" class="actions"><UButton label="通过" @click="review('approved')" /><UButton label="要求重传" color="neutral" variant="outline" @click="review('resubmission_required')" /><UButton label="驳回" color="error" @click="review('rejected')" /></div></section></template></USlideover>
+    <USlideover v-model:open="panelOpen" :title="selected ? `${selected.mapName} · ${selected.difficulty}` : ''"><template #body><section v-if="selected" class="admin-detail review-detail"><h2>{{ selected.mapName }} · {{ selected.difficulty }}</h2><p class="admin-detail__meta">{{ selected.playerName }} · {{ formatStatus(selected.status) }}</p><UAlert v-if="reviewError" color="error" variant="subtle" :description="reviewError" /><img class="evidence" :src="`/api/admin/evidence/${selected.submissionId}`" alt="玩家提交的挑战截图" /><section v-if="ocrPayload" class="ocr-summary" aria-label="OCR 识别结果"><h3>识别结果</h3><dl><div v-for="[name, field] in ocrFields" :key="name"><dt>{{ ocrLabels[name] }}</dt><dd>{{ ocrValue(field.value ?? ocrPayload.data?.[name]) }} <small>{{ ocrConfidence(field.confidence) }} · {{ field.status ?? 'unknown' }}</small></dd></div></dl><p v-if="Array.isArray(ocrPayload.warnings) && ocrPayload.warnings.length" class="ocr-warnings">告警：{{ ocrPayload.warnings.join('、') }}</p><p class="ocr-meta">模型 {{ ocrPayload.model_version ?? '未知' }} · 请求 {{ ocrPayload.request_id ?? '未知' }}</p><details><summary>查看原始 OCR 响应</summary><pre class="ocr">{{ JSON.stringify(ocrPayload, null, 2) }}</pre></details></section><div v-if="!isDecisionComplete(selected.status)" class="actions"><UButton label="通过" @click="review('approved')" /><UButton label="要求重传" color="neutral" variant="outline" @click="review('resubmission_required')" /><UButton label="驳回" color="error" @click="review('rejected')" /></div></section></template></USlideover>
   </AdminWorkspace>
 </template>
 
